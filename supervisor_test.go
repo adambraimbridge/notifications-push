@@ -1,13 +1,13 @@
 package main
 
 import (
-	"testing"
-	"github.com/wvanbergen/kazoo-go"
+	"fmt"
+	"github.com/pkg/errors"
 	"github.com/samuel/go-zookeeper/zk"
 	"github.com/stretchr/testify/assert"
-	"github.com/pkg/errors"
+	"github.com/wvanbergen/kazoo-go"
 	"sync/atomic"
-	"fmt"
+	"testing"
 	"time"
 )
 

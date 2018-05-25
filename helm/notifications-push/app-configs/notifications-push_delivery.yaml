@@ -6,5 +6,5 @@ env:
   TOPIC: "PostPublicationEvents"
   CONSUMER_BACKOFF: "2"
   NOTIFICATIONS_RESOURCE: "content"
-  WHITELIST: "^http://(methode|wordpress|content)-(article|collection|content-placeholder)-(mapper|unfolder)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content|complementarycontent)/[\\w-]+.*$"
+  WHITELIST: "^http://(methode|wordpress|content|upp)-(article|collection|content-placeholder|content)-(mapper|unfolder|validator)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content|complementarycontent)/[\\w-]+.*$"
   PUSH_PORT: "8599"

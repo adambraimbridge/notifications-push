@@ -4,15 +4,14 @@ import (
 	"bufio"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
-	"strings"
-
+	"github.com/Financial-Times/notifications-push/dispatch"
 	"github.com/Financial-Times/notifications-push/test/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/Financial-Times/notifications-push/dispatch"
 )
 
 var start func(sub dispatch.Subscriber)

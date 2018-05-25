@@ -1,9 +1,10 @@
 package resources
 
 import (
-	"testing"
-	"github.com/Financial-Times/notifications-push/test/mocks"
 	"net/http"
+	"testing"
+
+	"github.com/Financial-Times/notifications-push/test/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -87,4 +88,3 @@ func TestIsValidApiKeyResponseOtherServerError(t *testing.T) {
 	assert.Equal(t, "Request to validate api key returned an unexpected response", errMsg)
 	assert.Equal(t, http.StatusGatewayTimeout, errStatusCode)
 }
-
