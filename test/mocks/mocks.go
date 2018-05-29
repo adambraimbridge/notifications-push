@@ -2,11 +2,12 @@ package mocks
 
 import (
 	"errors"
-	"github.com/Financial-Times/notifications-push/dispatch"
-	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/Financial-Times/notifications-push/dispatch"
+	"github.com/stretchr/testify/mock"
 )
 
 // MockDispatcher is a mock of a dispatcher that can be reused for testing
