@@ -11,12 +11,12 @@ How to Build & Run the binary
 
 1. Install, build and test:
 ```
-go get -u github.com/kardianos/govendor
+curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 go get -u github.com/Financial-Times/notifications-push
 cd $GOPATH/src/github.com/Financial-Times/notifications-push
 
-govendor sync
-govendor test -v -race
+dep ensure -vendor-only
+go test ./... -race
 go install
 ```
 2. Run locally:

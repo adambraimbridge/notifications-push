@@ -1,12 +1,7 @@
 package main
 
 import (
-	log "github.com/Financial-Times/go-logger"
-	"github.com/Financial-Times/kafka-client-go/kafka"
-	queueConsumer "github.com/Financial-Times/notifications-push/consumer"
-	"github.com/Financial-Times/service-status-go/httphandlers"
-	"github.com/gorilla/mux"
-	"github.com/jawher/mow.cli"
+	"fmt"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -15,11 +10,16 @@ import (
 	"strconv"
 	"time"
 
-	"fmt"
+	log "github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/kafka-client-go/kafka"
+	queueConsumer "github.com/Financial-Times/notifications-push/consumer"
 	"github.com/Financial-Times/notifications-push/dispatch"
 	"github.com/Financial-Times/notifications-push/resources"
-	"github.com/wvanbergen/kazoo-go"
+	"github.com/Financial-Times/service-status-go/httphandlers"
+	"github.com/gorilla/mux"
+	"github.com/jawher/mow.cli"
 	"github.com/samuel/go-zookeeper/zk"
+	"github.com/wvanbergen/kazoo-go"
 )
 
 const (

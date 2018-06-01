@@ -1,14 +1,15 @@
 package main
 
 import (
+	"fmt"
+	"sync/atomic"
 	"testing"
-	"github.com/wvanbergen/kazoo-go"
+	"time"
+
+	"github.com/pkg/errors"
 	"github.com/samuel/go-zookeeper/zk"
 	"github.com/stretchr/testify/assert"
-	"github.com/pkg/errors"
-	"sync/atomic"
-	"fmt"
-	"time"
+	"github.com/wvanbergen/kazoo-go"
 )
 
 var fatalErrs = []error{kazoo.ErrPartitionNotClaimed, zk.ErrNoServer}

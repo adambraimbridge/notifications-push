@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/Financial-Times/notifications-push/dispatch"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHistory(t *testing.T) {

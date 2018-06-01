@@ -1,11 +1,11 @@
 package resources
 
 import (
+	"encoding/json"
 	log "github.com/Financial-Times/go-logger"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"encoding/json"
 )
 
 func isValidApiKey(providedApiKey string, apiGatewayKeyValidationURL string, httpClient *http.Client) (bool, string, int) {

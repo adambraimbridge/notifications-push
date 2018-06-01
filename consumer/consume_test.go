@@ -4,14 +4,14 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/Financial-Times/notifications-push/test/mocks"
-
 	"github.com/Financial-Times/kafka-client-go/kafka"
+	"github.com/Financial-Times/notifications-push/test/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 var defaultWhitelist = regexp.MustCompile(`^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/(lists)/[\w-]+.*$`)
+var sparkIncludedWhiteList = regexp.MustCompile("^http://(methode|wordpress|content|upp)-(article|collection|content-placeholder|content)-(mapper|unfolder|validator)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content|complementarycontent)/[\\w-]+.*$")
 
 func TestSyntheticMessage(t *testing.T) {
 	mapper := NotificationMapper{
@@ -58,6 +58,25 @@ func TestWhitelist(t *testing.T) {
 
 	handler.HandleMessage(msg)
 	dispatcher.AssertNotCalled(t, "Send")
+}
+
+func TestSparkCCTWhitelist(t *testing.T) {
+	mapper := NotificationMapper{
+		APIBaseURL: "test.api.ft.com",
+		Resource:   "content",
+	}
+
+	dispatcher := new(mocks.MockDispatcher)
+	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+
+	handler := NewMessageQueueHandler(sparkIncludedWhiteList, mapper, dispatcher)
+
+	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"},
+		`{"contentURI": "http://upp-content-validator.svc.ft.com/content/f601289e-93a0-4c08-854e-fef334584079"}`)
+
+	err := handler.HandleMessage(msg)
+	assert.NoError(t, err)
+	dispatcher.AssertExpectations(t)
 }
 
 func TestFailsConversionToNotification(t *testing.T) {
