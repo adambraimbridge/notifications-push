@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	heartbeatMsg  = "[]"
+	HeartbeatMsg  = "[]"
 	rfc3339Millis = "2006-01-02T15:04:05.000Z07:00"
 )
 
@@ -83,6 +83,7 @@ func (d *dispatcher) forwardToSubscribers(notification Notification) {
 	for sub := range d.subscribers {
 		entry := log.WithField("transaction_id", notification.PublishReference).
 			WithField("resource", notification.APIURL).
+			WithField("subscriberId", sub.Id()).
 			WithField("subscriberAddress", sub.Address()).
 			WithField("subscriberSince", sub.Since().Format(time.RFC3339))
 
@@ -109,7 +110,10 @@ func (d *dispatcher) heartbeat() {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	for sub := range d.subscribers {
-		sub.writeOnMsgChannel(heartbeatMsg)
+		log.WithField("subscriberId", sub.Id()).
+			WithField("subscriber", sub.Address()).
+			Info("Sending heartbeat to subscriber ...")
+		sub.writeOnMsgChannel(HeartbeatMsg)
 	}
 }
 
@@ -137,9 +141,14 @@ func (d *dispatcher) Register(subscriber Subscriber) {
 	defer d.lock.Unlock()
 
 	d.subscribers[subscriber] = struct{}{}
-	log.WithField("subscriber", subscriber.Address()).WithField("subscriberType", reflect.TypeOf(subscriber).Elem().Name()).WithField("acceptedContentType", subscriber.AcceptedContentType()).Info("Registered new subscriber")
 
-	subscriber.writeOnMsgChannel(heartbeatMsg)
+	log.WithField("subscriberId", subscriber.Id()).
+		WithField("subscriber", subscriber.Address()).
+		WithField("subscriberType", reflect.TypeOf(subscriber).Elem().Name()).
+		WithField("acceptedContentType", subscriber.AcceptedContentType()).
+		Info("Registered new subscriber")
+
+	subscriber.writeOnMsgChannel(HeartbeatMsg)
 }
 
 func (d *dispatcher) Subscribers() []Subscriber {
@@ -158,5 +167,8 @@ func (d *dispatcher) Close(subscriber Subscriber) {
 	defer d.lock.Unlock()
 
 	delete(d.subscribers, subscriber)
-	log.WithField("subscriber", subscriber.Address()).WithField("subscriberType", reflect.TypeOf(subscriber).Elem().Name()).Info("Unregistered subscriber")
+	log.WithField("subscriberId", subscriber.Id()).
+		WithField("subscriber", subscriber.Address()).
+		WithField("subscriberType", reflect.TypeOf(subscriber).Elem().Name()).
+		Info("Unregistered subscriber")
 }

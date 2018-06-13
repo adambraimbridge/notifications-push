@@ -55,7 +55,7 @@ func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 	d.Send(n1, n2)
 
 	actualhbMessage := <-s.NotificationChannel()
-	assert.Equal(t, heartbeatMsg, actualhbMessage, "First message is a heartbeat")
+	assert.Equal(t, HeartbeatMsg, actualhbMessage, "First message is a heartbeat")
 
 	actualN1StdMsg := <-s.NotificationChannel()
 	verifyNotificationResponse(t, n1, zeroTime, zeroTime, actualN1StdMsg)
@@ -64,7 +64,7 @@ func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 	verifyNotificationResponse(t, n2, zeroTime, zeroTime, actualN2StdMsg)
 
 	actualhbMessage = <-m.NotificationChannel()
-	assert.Equal(t, heartbeatMsg, actualhbMessage, "First message is a heartbeat")
+	assert.Equal(t, HeartbeatMsg, actualhbMessage, "First message is a heartbeat")
 
 	actualN1MonitorMsg := <-m.NotificationChannel()
 	verifyNotificationResponse(t, n1, notBefore, time.Now(), actualN1MonitorMsg)
@@ -92,16 +92,16 @@ func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 	d.Send(n1, n2)
 
 	actualhbMessage := <-s.NotificationChannel()
-	assert.Equal(t, heartbeatMsg, actualhbMessage, "First message is a heartbeat")
+	assert.Equal(t, HeartbeatMsg, actualhbMessage, "First message is a heartbeat")
 
 	actualN2StdMsg := <-s.NotificationChannel()
 	verifyNotificationResponse(t, n2, zeroTime, zeroTime, actualN2StdMsg)
 
 	anotherHbMsg := <-s.NotificationChannel()
-	assert.Equal(t, heartbeatMsg, anotherHbMsg, "Third message is a heartbeat")
+	assert.Equal(t, HeartbeatMsg, anotherHbMsg, "Third message is a heartbeat")
 
 	actualhbMessage = <-m.NotificationChannel()
-	assert.Equal(t, heartbeatMsg, actualhbMessage, "First message is a heartbeat")
+	assert.Equal(t, HeartbeatMsg, actualhbMessage, "First message is a heartbeat")
 
 	actualN1MonitorMsg := <-m.NotificationChannel()
 	verifyNotificationResponse(t, n1, notBefore, time.Now(), actualN1MonitorMsg)
@@ -192,7 +192,7 @@ func TestDispatchDelay(t *testing.T) {
 
 	actualDelay := stop.Sub(start)
 
-	assert.Equal(t, heartbeatMsg, actualhbMessage, "First message is a heartbeat")
+	assert.Equal(t, HeartbeatMsg, actualhbMessage, "First message is a heartbeat")
 	verifyNotificationResponse(t, n1, zeroTime, zeroTime, actualN1StdMsg)
 	assert.InEpsilon(t, delay.Nanoseconds(), actualDelay.Nanoseconds(), 0.05, "The delay is correct with 0.05 relative error")
 }
@@ -213,26 +213,26 @@ func TestHeartbeat(t *testing.T) {
 	d.Register(s)
 
 	actualHbMsg := <-s.NotificationChannel()
-	assert.Equal(t, heartbeatMsg, actualHbMsg, "The first heartbeat message is correct")
+	assert.Equal(t, HeartbeatMsg, actualHbMsg, "The first heartbeat message is correct")
 
 	actualHbMsg = <-s.NotificationChannel()
 	actualHbDelay := time.Since(start)
 	assert.InEpsilon(t, heartbeat.Nanoseconds(), actualHbDelay.Nanoseconds(), 0.05, "The first heartbeat delay is correct with 0.05 relative error")
-	assert.Equal(t, heartbeatMsg, actualHbMsg, "The second heartbeat message is correct")
+	assert.Equal(t, HeartbeatMsg, actualHbMsg, "The second heartbeat message is correct")
 
 	start = start.Add(heartbeat)
 	actualHbMsg = <-s.NotificationChannel()
 	actualHbDelay = time.Since(start)
 
 	assert.InEpsilon(t, heartbeat.Nanoseconds(), actualHbDelay.Nanoseconds(), 0.05, "The second heartbeat delay is correct with 0.05 relative error")
-	assert.Equal(t, heartbeatMsg, actualHbMsg, "The third heartbeat message is correct")
+	assert.Equal(t, HeartbeatMsg, actualHbMsg, "The third heartbeat message is correct")
 
 	start = start.Add(heartbeat)
 	actualHbMsg = <-s.NotificationChannel()
 	actualHbDelay = time.Since(start)
 
 	assert.InEpsilon(t, heartbeat.Nanoseconds(), actualHbDelay.Nanoseconds(), 0.05, "The third heartbeat delay is correct with 0.05 relative error")
-	assert.Equal(t, heartbeatMsg, actualHbMsg, "The fourth heartbeat message is correct")
+	assert.Equal(t, HeartbeatMsg, actualHbMsg, "The fourth heartbeat message is correct")
 }
 func TestHeartbeatWithNotifications(t *testing.T) {
 	if testing.Short() {
@@ -250,12 +250,12 @@ func TestHeartbeatWithNotifications(t *testing.T) {
 	d.Register(s)
 
 	actualHbMsg := <-s.NotificationChannel()
-	assert.Equal(t, heartbeatMsg, actualHbMsg, "The first heartbeat message is correct")
+	assert.Equal(t, HeartbeatMsg, actualHbMsg, "The first heartbeat message is correct")
 
 	actualHbMsg = <-s.NotificationChannel()
 	actualHbDelay := time.Since(start)
 	assert.InEpsilon(t, heartbeat.Nanoseconds(), actualHbDelay.Nanoseconds(), 0.05, "The first heartbeat delay is correct with 0.05 relative error")
-	assert.Equal(t, heartbeatMsg, actualHbMsg, "The second heartbeat message is correct")
+	assert.Equal(t, HeartbeatMsg, actualHbMsg, "The second heartbeat message is correct")
 
 	// send a notification
 	start = start.Add(heartbeat)
@@ -269,7 +269,7 @@ func TestHeartbeatWithNotifications(t *testing.T) {
 	actualHbMsg = <-s.NotificationChannel()
 	actualHbDelay = time.Since(start.Add(delay))
 	assert.InEpsilon(t, randDuration1.Nanoseconds()+heartbeat.Nanoseconds(), actualHbDelay.Nanoseconds(), 0.05, "The second heartbeat delay is correct with 0.05 relative error")
-	assert.Equal(t, heartbeatMsg, actualHbMsg, "The third heartbeat message is correct")
+	assert.Equal(t, HeartbeatMsg, actualHbMsg, "The third heartbeat message is correct")
 
 	// send a notification
 	start = time.Now()
@@ -292,7 +292,7 @@ func TestHeartbeatWithNotifications(t *testing.T) {
 	actualHbMsg = <-s.NotificationChannel()
 	actualHbDelay = time.Since(start.Add(2 * delay))
 	assert.InEpsilon(t, randDuration2.Nanoseconds()+randDuration3.Nanoseconds()+heartbeat.Nanoseconds(), actualHbDelay.Nanoseconds(), 0.05, "The third heartbeat delay is correct with 0.05 relative error")
-	assert.Equal(t, heartbeatMsg, actualHbMsg, "The fourth heartbeat message is correct")
+	assert.Equal(t, HeartbeatMsg, actualHbMsg, "The fourth heartbeat message is correct")
 }
 func TestDispatchedNotificationsInHistory(t *testing.T) {
 	h := NewHistory(historySize)
