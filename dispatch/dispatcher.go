@@ -110,9 +110,6 @@ func (d *dispatcher) heartbeat() {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	for sub := range d.subscribers {
-		log.WithField("subscriberId", sub.Id()).
-			WithField("subscriber", sub.Address()).
-			Info("Sending heartbeat to subscriber ...")
 		sub.writeOnMsgChannel(HeartbeatMsg)
 	}
 }
