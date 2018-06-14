@@ -142,6 +142,10 @@ func NewMonitorSubscriber(address string, contentType string) Subscriber {
 }
 
 func (m *monitorSubscriber) send(n Notification) error {
+	// -- set subscriberId for NPM traceability only for monitor mode subscribers
+	n.SubscriberId = m.Id()
+	// --
+
 	notificationMsg, err := buildMonitorNotificationMsg(n)
 	if err != nil {
 		return err
