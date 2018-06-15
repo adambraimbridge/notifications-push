@@ -8,10 +8,12 @@ import (
 	"time"
 
 	log "github.com/Financial-Times/go-logger"
+	"github.com/satori/go.uuid"
 )
 
 // Subscriber represents the interface of a generic subscriber to a push stream
 type Subscriber interface {
+	Id() string
 	send(n Notification) error
 	matchesContentType(n Notification) bool
 	NotificationChannel() chan string
@@ -23,6 +25,7 @@ type Subscriber interface {
 
 // StandardSubscriber implements a standard subscriber
 type standardSubscriber struct {
+	id                  string
 	notificationChannel chan string
 	addr                string
 	sinceTime           time.Time
@@ -33,11 +36,18 @@ type standardSubscriber struct {
 func NewStandardSubscriber(address string, contentType string) Subscriber {
 	notificationChannel := make(chan string, 16)
 	return &standardSubscriber{
+		id:                  uuid.NewV4().String(),
 		notificationChannel: notificationChannel,
 		addr:                address,
 		sinceTime:           time.Now(),
 		acceptedContentType: contentType,
 	}
+}
+
+// Id returns the uniquely generated subscriber identifier
+// Returned value is assigned during the construction phase.
+func (s *standardSubscriber) Id() string {
+	return s.id
 }
 
 // Address returns the IP address of the standard subscriber
@@ -82,7 +92,10 @@ func (s *standardSubscriber) writeOnMsgChannel(msg string) {
 	select {
 	case s.notificationChannel <- msg:
 	default:
-		log.WithField("subscriber", s.Address()).WithField("message", msg).Warn("Subscriber lagging behind...")
+		log.WithField("subscriberId", s.id).
+			WithField("subscriber", s.Address()).
+			WithField("message", msg).
+			Warn("Subscriber lagging behind...")
 	}
 }
 
@@ -129,6 +142,10 @@ func NewMonitorSubscriber(address string, contentType string) Subscriber {
 }
 
 func (m *monitorSubscriber) send(n Notification) error {
+	// -- set subscriberId for NPM traceability only for monitor mode subscribers
+	n.SubscriberId = m.Id()
+	// --
+
 	notificationMsg, err := buildMonitorNotificationMsg(n)
 	if err != nil {
 		return err
@@ -153,6 +170,7 @@ func (m *monitorSubscriber) MarshalJSON() ([]byte, error) {
 
 // SubscriberPayload is the JSON representation of a generic subscriber
 type SubscriberPayload struct {
+	Id                 string `json:"id"`
 	Address            string `json:"address"`
 	Since              string `json:"since"`
 	ConnectionDuration string `json:"connectionDuration"`
@@ -161,6 +179,7 @@ type SubscriberPayload struct {
 
 func newSubscriberPayload(s Subscriber) *SubscriberPayload {
 	return &SubscriberPayload{
+		Id:                 s.Id(),
 		Address:            s.Address(),
 		Since:              s.Since().Format(time.StampMilli),
 		ConnectionDuration: time.Since(s.Since()).String(),

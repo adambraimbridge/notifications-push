@@ -77,23 +77,50 @@ func Push(reg dispatch.Registrar, apiGatewayKeyValidationURL string, httpClient 
 			case notification := <-s.NotificationChannel():
 				_, err := bw.WriteString("data: " + notification + "\n\n")
 				if err != nil {
-					log.Infof("[%v]", err)
+					logNotificationError(s, notification, err)
 					return
 				}
 
 				err = bw.Flush()
 				if err != nil {
-					log.Infof("[%v]", err)
+					logNotificationError(s, notification, err)
 					return
 				}
 
 				flusher := w.(http.Flusher)
 				flusher.Flush()
+
+				logSuccessForHeartbeatMessage(notification, s)
+
 			case <-cn.CloseNotify():
+				log.WithField("subscriberId", s.Id()).
+					WithField("subscriber", s.Address()).
+					Info("Notification subscriber disconnected remotely")
 				return
 			}
 		}
 	}
+}
+
+func logSuccessForHeartbeatMessage(notification string, s dispatch.Subscriber) {
+	if notification == dispatch.HeartbeatMsg {
+		log.WithField("subscriberId", s.Id()).
+			WithField("subscriber", s.Address()).
+			Info("Heartbeat sent to subscriber successfully")
+	}
+}
+
+func logNotificationError(s dispatch.Subscriber, notification string, err error) {
+	withError := log.WithField("subscriberId", s.Id()).
+		WithField("subscriber", s.Address()).
+		WithError(err)
+
+	if notification == dispatch.HeartbeatMsg {
+		withError.Error("Sending heartbeat to subscriber has failed ")
+		return
+	}
+
+	withError.Error("Error while sending notification to subscriber")
 }
 
 func getClientAddr(r *http.Request) string {
