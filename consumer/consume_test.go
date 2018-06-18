@@ -8,10 +8,15 @@ import (
 	"github.com/Financial-Times/notifications-push/test/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/Financial-Times/go-logger"
 )
 
 var defaultWhitelist = regexp.MustCompile(`^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/(lists)/[\w-]+.*$`)
 var sparkIncludedWhiteList = regexp.MustCompile("^http://(methode|wordpress|content|upp)-(article|collection|content-placeholder|content)-(mapper|unfolder|validator)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content|complementarycontent)/[\\w-]+.*$")
+
+func init() {
+	logger.InitDefaultLogger("test-notifications-push")
+}
 
 func TestSyntheticMessage(t *testing.T) {
 	mapper := NotificationMapper{
@@ -168,6 +173,22 @@ func TestDiscardCarouselPublicationEventsWithGeneratedTransactionID(t *testing.T
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_fzy2uqund8_carousel_1485954245_gentx"},
 		`{"UUID": "a uuid", "ContentURI": "http://list-transformer-pr-uk-up.svc.ft.com:8080/lists/blah/55e40823-6804-4264-ac2f-b29e11bf756a"}`,
 	)
+
+	handler.HandleMessage(msg)
+	dispatcher.AssertNotCalled(t, "Send")
+}
+
+func TestDiscardDynamicContentPublicationEvents(t *testing.T) {
+	mapper := NotificationMapper{
+		APIBaseURL: "test.api.ft.com",
+		Resource:   "content",
+	}
+
+	dispatcher := new(mocks.MockDispatcher)
+	handler := NewMessageQueueHandler(sparkIncludedWhiteList, mapper, dispatcher)
+
+	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_dynamic_content"},
+		`{"UUID": "55e40823-6804-4264-ac2f-b29e11bf756a", "ContentURI": "http://methode-article-mapper.svc.ft.com/content/55e40823-6804-4264-ac2f-b29e11bf756a", "ContentType": "http://www.ft.com/ontology/content/DynamicContent"}`)
 
 	handler.HandleMessage(msg)
 	dispatcher.AssertNotCalled(t, "Send")
