@@ -107,11 +107,11 @@ The notifications-push stream endpoint allows a `monitor` query parameter. By se
 To test the stream endpoint you can run the following CURL commands :
 ```
 curl -X GET "http://localhost:8080/content/notifications-push"
-curl -X GET "http://localhost:8080/lists/notifications-push?monitor=true"
-curl -X GET "https://<user>@<password>:pre-prod-up.ft.com/lists/notifications-push"
+curl -X GET "http://localhost:8080/content/notifications-push?monitor=true"
+curl -X GET "https://<user>@<password>:pre-prod-up.ft.com/content/notifications-push"
 ```
 
-**WARNING: In CoCo, this endpoint does not work under `/__notifications-push/` and `/__list-notifications-push/`.**
+**WARNING: In CoCo, this endpoint does not work under `/__notifications-push/`.**
 The reason for this is because Vulcan does not support long polling of HTTP requests. We worked around this issue by forwarding messages through Varnish to a fixed port for both services.
 
 **Productionizing Push API:**
@@ -195,8 +195,6 @@ Useful Links
 * Production: 
 
 [https://api.ft.com/content/notifications-push](#https://api.ft.com/content/notifications-push?apiKey=555) (needs API key)
-
-[https://api.ft.com/lists/notifications-push](#https://api.ft.com/content/notifications-push?apiKey=555) (needs API key)
 
 * For internal use:
 
