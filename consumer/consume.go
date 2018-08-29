@@ -35,16 +35,16 @@ type MessageQueueHandler interface {
 }
 
 type simpleMessageQueueHandler struct {
-	contentUriWhiteList  *regexp.Regexp
+	contentUriWhitelist  *regexp.Regexp
 	contentTypeWhitelist *Set
 	mapper               NotificationMapper
 	dispatcher           dispatch.Dispatcher
 }
 
 // NewMessageQueueHandler returns a new message handler
-func NewMessageQueueHandler(contentUriWhiteList *regexp.Regexp, contentTypeWhitelist *Set, mapper NotificationMapper, dispatcher dispatch.Dispatcher) MessageQueueHandler {
+func NewMessageQueueHandler(contentUriWhitelist *regexp.Regexp, contentTypeWhitelist *Set, mapper NotificationMapper, dispatcher dispatch.Dispatcher) MessageQueueHandler {
 	return &simpleMessageQueueHandler{
-		contentUriWhiteList:  contentUriWhiteList,
+		contentUriWhitelist:  contentUriWhitelist,
 		contentTypeWhitelist: contentTypeWhitelist,
 		mapper:               mapper,
 		dispatcher:           dispatcher,
@@ -72,7 +72,7 @@ func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessag
 
 	contentType := msg.Headers["ContentType"]
 	if contentType == "application/json" || contentType == "" {
-		if !pubEvent.Matches(qHandler.contentUriWhiteList) {
+		if !pubEvent.Matches(qHandler.contentUriWhitelist) {
 			log.WithField("transaction_id", msg.TransactionID()).WithField("contentUri", pubEvent.ContentURI).WithField("contentType", contentType).Info("Skipping event: contentUri is not in the whitelist.")
 			return nil
 		}
