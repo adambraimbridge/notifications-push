@@ -40,20 +40,15 @@ func (msg NotificationQueueMessage) ToPublicationEvent() (event PublicationEvent
 // PublicationEvent is the data structure that represents a publication event consumed from Kafka
 type PublicationEvent struct {
 	ContentURI   string
-	ContentType  string
 	LastModified string
 	Payload      interface{}
 	UUID         string
 }
 
 // Matches is a method that returns True if the ContentURI of a publication event
-// matches a whiteList regexp
-func (e PublicationEvent) Matches(whiteList *regexp.Regexp) bool {
-	return whiteList.MatchString(e.ContentURI)
-}
-
-func (e PublicationEvent) IsDynamicContent() bool {
-	return e.ContentType == "http://www.ft.com/ontology/content/DynamicContent"
+// matches a whitelist regexp
+func (e PublicationEvent) Matches(whitelist *regexp.Regexp) bool {
+	return whitelist.MatchString(e.ContentURI)
 }
 
 // HasEmptyPayload is a method that returns true if the PublicationEvent has an empty payload

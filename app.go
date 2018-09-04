@@ -83,10 +83,16 @@ func main() {
 		Desc:   "The time to delay each notification before forwarding to any subscribers (in seconds).",
 		EnvVar: "NOTIFICATIONS_DELAY",
 	})
-	whitelist := app.String(cli.StringOpt{
-		Name:   "whitelist",
-		Desc:   `The whitelist for incoming notifications - i.e. ^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/content/[\w-]+.*$`,
-		EnvVar: "WHITELIST",
+	contentURIWhitelist := app.String(cli.StringOpt{
+		Name:   "content_uri_whitelist",
+		Desc:   `The contentURI whitelist for incoming notifications - i.e. ^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/content/[\w-]+.*$`,
+		EnvVar: "CONTENT_URI_WHITELIST",
+	})
+	contentTypeWhitelist := app.Strings(cli.StringsOpt{
+		Name:   "content_type_whitelist",
+		Value:  []string{},
+		Desc:   `Comma-separated list of whitelisted ContentTypes for incoming notifications - i.e. application/vnd.ft-upp-article+json,application/vnd.ft-upp-audio+json`,
+		EnvVar: "CONTENT_TYPE_WHITELIST",
 	})
 
 	log.InitLogger(serviceName, "info")
@@ -141,7 +147,7 @@ func main() {
 			APIBaseURL: *apiBaseURL,
 		}
 
-		whitelistR, err := regexp.Compile(*whitelist)
+		whitelistR, err := regexp.Compile(*contentURIWhitelist)
 		if err != nil {
 			log.WithError(err).Fatal("Whitelist regex MUST compile!")
 		}
@@ -149,7 +155,11 @@ func main() {
 		apiGatewayKeyValidationURL := fmt.Sprintf("%s/%s", *apiBaseURL, *apiKeyValidationEndpoint)
 		go server(":"+strconv.Itoa(*port), *resource, dispatcher, history, messageConsumer, apiGatewayKeyValidationURL, httpClient)
 
-		queueHandler := queueConsumer.NewMessageQueueHandler(whitelistR, mapper, dispatcher)
+		ctWhitelist := queueConsumer.NewSet()
+		for _, value := range *contentTypeWhitelist {
+			ctWhitelist.Add(value)
+		}
+		queueHandler := queueConsumer.NewMessageQueueHandler(whitelistR, ctWhitelist, mapper, dispatcher)
 		pushService := newPushService(dispatcher, messageConsumer)
 		pushService.start(queueHandler)
 	}
