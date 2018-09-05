@@ -40,7 +40,8 @@ export NOTIFICATIONS_RESOURCE=content \
     && export TOPIC=PostPublicationEvents \
     && export NOTIFICATIONS_DELAY=10 \
     && export API_BASE_URL="http://api.ft.com" \
-    && export WHITELIST="^http://(methode|wordpress|content)-(article|collection|content-placeholder)-(transformer|mapper|unfolder)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$" \
+    && export CONTENT_TYPE_WHITELIST="application/vnd.ft-upp-article+json,application/vnd.ft-upp-content-package+json" \
+    && export CONTENT_URI_WHITELIST="^http://(methode|wordpress|content)-(article|collection|content-placeholder)-(transformer|mapper|unfolder)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$" \
     && ./notifications-push
 ```
 
@@ -55,7 +56,8 @@ export NOTIFICATIONS_RESOURCE=content \
     --notifications_delay=10 \
     --api-base-url="http://api.ft.com" \
     --api_key_validation_endpoint="t800/a" \
-    --whitelist="^http://(methode|wordpress|content)-(article|collection|content-placeholder)-(transformer|mapper|unfolder)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$"
+    --content_type_whitelist="application/vnd.ft-upp-article+json,application/vnd.ft-upp-content-package+json" \
+    --content_uri_whitelist="^http://(methode|wordpress|content)-(article|collection|content-placeholder)-(transformer|mapper|unfolder)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$"
 ```
 
 NB: for the complete list of options run `./notifications-push -h`
@@ -181,7 +183,8 @@ How to Build & Run with Docker
         --env TOPIC="PostPublicationEvents" \
         --env NOTIFICATIONS_DELAY=10 \
         --env API_BASE_URL="http://api.ft.com" \
-        --env WHITELIST="^http://(methode|wordpress|content)-(article|collection)-(transformer|mapper|unfolder)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$" \
+        --env CONTENT_TYPE_WHITELIST="application/vnd.ft-upp-article+json,application/vnd.ft-upp-content-package+json" \
+        --env CONTENT_URI_WHITELIST="^http://(methode|wordpress|content)-(article|collection)-(transformer|mapper|unfolder)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$" \
         coco/notifications-push
 ```
 
