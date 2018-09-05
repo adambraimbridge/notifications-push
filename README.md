@@ -66,7 +66,7 @@ HTTP endpoints
 ----------
 ```curl -i --header "x-api-key: «api_key»" https://api.ft.com/content/notifications-push```
 
-The following content types could be also specified for which the client would like to receive notifications by setting a "type" parameter on the request: `Article`, `ContentPackage` and `All` to include everything (also CPHs).
+The following content types could be also specified for which the client would like to receive notifications by setting a "type" parameter on the request: `Article`, `ContentPackage`, `Audio` and `All` to include everything (also CPHs).
 If not specified, by default `Article` is used. If an invalid type is requested an HTTP 400 Bad Request is returned.
 
 E.g.
