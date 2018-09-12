@@ -6,7 +6,7 @@ import (
 	log "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/Financial-Times/notifications-push/dispatch"
-)
+			)
 
 var exists = struct{}{}
 
@@ -70,7 +70,7 @@ func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessag
 		return nil
 	}
 
-	contentType := msg.Headers["ContentType"]
+	contentType := msg.Headers["Content-Type"]
 	if contentType == "application/json" || contentType == "" {
 		if !pubEvent.Matches(qHandler.contentUriWhitelist) {
 			log.WithField("transaction_id", msg.TransactionID()).WithField("contentUri", pubEvent.ContentURI).WithField("contentType", contentType).Info("Skipping event: contentUri is not in the whitelist.")
