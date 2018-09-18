@@ -155,7 +155,6 @@ func main() {
 		apiGatewayKeyValidationURL := fmt.Sprintf("%s/%s", *apiBaseURL, *apiKeyValidationEndpoint)
 		go server(":"+strconv.Itoa(*port), *resource, dispatcher, history, messageConsumer, apiGatewayKeyValidationURL, httpClient)
 
-		log.WithField("content_type_whitelist", *contentTypeWhitelist).Info()
 		ctWhitelist := queueConsumer.NewSet()
 		for _, value := range *contentTypeWhitelist {
 			ctWhitelist.Add(value)
