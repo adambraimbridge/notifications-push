@@ -8,10 +8,15 @@ import (
 	"github.com/Financial-Times/notifications-push/test/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/Financial-Times/go-logger"
 )
 
-var defaultWhitelist = regexp.MustCompile(`^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/(lists)/[\w-]+.*$`)
+var defaultContentUriWhitelist = regexp.MustCompile(`^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/(lists)/[\w-]+.*$`)
 var sparkIncludedWhiteList = regexp.MustCompile("^http://(methode|wordpress|content|upp)-(article|collection|content-placeholder|content)-(mapper|unfolder|validator)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content|complementarycontent)/[\\w-]+.*$")
+
+func init() {
+	logger.InitDefaultLogger("test-notifications-push")
+}
 
 func TestSyntheticMessage(t *testing.T) {
 	mapper := NotificationMapper{
@@ -20,7 +25,7 @@ func TestSyntheticMessage(t *testing.T) {
 	}
 
 	dispatcher := new(mocks.MockDispatcher)
-	handler := NewMessageQueueHandler(defaultWhitelist, mapper, dispatcher)
+	handler := NewMessageQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "SYNTH_tid"},
 		`{"UUID": "a uuid", "ContentURI": "http://list-transformer-pr-uk-up.svc.ft.com:8080/lists/blah/55e40823-6804-4264-ac2f-b29e11bf756a"}`)
@@ -36,7 +41,7 @@ func TestFailedCMSMessageParse(t *testing.T) {
 	}
 
 	dispatcher := new(mocks.MockDispatcher)
-	handler := NewMessageQueueHandler(defaultWhitelist, mapper, dispatcher)
+	handler := NewMessageQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"}, "")
 
@@ -51,7 +56,7 @@ func TestWhitelist(t *testing.T) {
 	}
 
 	dispatcher := new(mocks.MockDispatcher)
-	handler := NewMessageQueueHandler(defaultWhitelist, mapper, dispatcher)
+	handler := NewMessageQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"},
 		`{"ContentURI": "something which wouldn't match"}`)
@@ -69,7 +74,7 @@ func TestSparkCCTWhitelist(t *testing.T) {
 	dispatcher := new(mocks.MockDispatcher)
 	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
 
-	handler := NewMessageQueueHandler(sparkIncludedWhiteList, mapper, dispatcher)
+	handler := NewMessageQueueHandler(sparkIncludedWhiteList, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"},
 		`{"contentURI": "http://upp-content-validator.svc.ft.com/content/f601289e-93a0-4c08-854e-fef334584079"}`)
@@ -77,6 +82,129 @@ func TestSparkCCTWhitelist(t *testing.T) {
 	err := handler.HandleMessage(msg)
 	assert.NoError(t, err)
 	dispatcher.AssertExpectations(t)
+}
+
+func TestAcceptNotificationBasedOnContentType(t *testing.T) {
+	mapper := NotificationMapper{
+		APIBaseURL: "test.api.ft.com",
+		Resource:   "content",
+	}
+	contentTypeWhitelist := NewSet()
+	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
+
+	dispatcher := new(mocks.MockDispatcher)
+	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+
+	handler := NewMessageQueueHandler(defaultContentUriWhitelist, contentTypeWhitelist, mapper, dispatcher)
+
+	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin", "Content-Type": "application/vnd.ft-upp-article+json"},
+	`{"ContentURI": "http://not-in-the-whitelist.svc.ft.com:8080/lists/blah/55e40823-6804-4264-ac2f-b29e11bf756a"}`)
+
+	err := handler.HandleMessage(msg)
+	assert.NoError(t, err)
+	dispatcher.AssertExpectations(t)
+}
+
+func TestDiscardNotificationBasedOnContentType(t *testing.T) {
+	mapper := NotificationMapper{
+		APIBaseURL: "test.api.ft.com",
+		Resource:   "content",
+	}
+	contentTypeWhitelist := NewSet()
+	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
+
+	dispatcher := new(mocks.MockDispatcher)
+	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+
+	handler := NewMessageQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
+
+	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin", "Content-Type": "application/vnd.ft-upp-invalid+json"},
+		`{"ContentURI": "http://methode-article-mapper.svc.ft.com:8080/lists/blah/55e40823-6804-4264-ac2f-b29e11bf756a"}`)
+
+	handler.HandleMessage(msg)
+	dispatcher.AssertNotCalled(t, "Send")
+}
+
+func TestAcceptNotificationBasedOnContentUriWhenContentTypeIsApplicationJson(t *testing.T) {
+	mapper := NotificationMapper{
+		APIBaseURL: "test.api.ft.com",
+		Resource:   "content",
+	}
+	contentTypeWhitelist := NewSet()
+	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
+
+	dispatcher := new(mocks.MockDispatcher)
+	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+
+	handler := NewMessageQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
+
+	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin", "Content-Type": "application/json"},
+		`{"ContentURI": "http://methode-article-mapper.svc.ft.com:8080/content/55e40823-6804-4264-ac2f-b29e11bf756a"}`)
+
+	err := handler.HandleMessage(msg)
+	assert.NoError(t, err)
+	dispatcher.AssertExpectations(t)
+}
+
+func TestDiscardNotificationBasedOnContentUriWhenContentTypeIsApplicationJson(t *testing.T) {
+	mapper := NotificationMapper{
+		APIBaseURL: "test.api.ft.com",
+		Resource:   "content",
+	}
+	contentTypeWhitelist := NewSet()
+	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
+
+	dispatcher := new(mocks.MockDispatcher)
+	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+
+	handler := NewMessageQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
+
+	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin", "Content-Type": "application/json"},
+		`{"ContentURI": "http://not-in-the-whitelist.svc.ft.com:8080/content/55e40823-6804-4264-ac2f-b29e11bf756a"}`)
+
+	handler.HandleMessage(msg)
+	dispatcher.AssertNotCalled(t, "Send")
+}
+
+func TestAcceptNotificationBasedOnContentUriWhenContentTypeIsMissing(t *testing.T) {
+	mapper := NotificationMapper{
+		APIBaseURL: "test.api.ft.com",
+		Resource:   "content",
+	}
+	contentTypeWhitelist := NewSet()
+	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
+
+	dispatcher := new(mocks.MockDispatcher)
+	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+
+	handler := NewMessageQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
+
+	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"},
+		`{"ContentURI": "http://methode-article-mapper.svc.ft.com:8080/content/55e40823-6804-4264-ac2f-b29e11bf756a"}`)
+
+	err := handler.HandleMessage(msg)
+	assert.NoError(t, err)
+	dispatcher.AssertExpectations(t)
+}
+
+func TestDiscardNotificationBasedOnContentUriWhenContentTypeIsMissing(t *testing.T) {
+	mapper := NotificationMapper{
+		APIBaseURL: "test.api.ft.com",
+		Resource:   "content",
+	}
+	contentTypeWhitelist := NewSet()
+	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
+
+	dispatcher := new(mocks.MockDispatcher)
+	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+
+	handler := NewMessageQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
+
+	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"},
+		`{"ContentURI": "http://not-in-the-whitelist.svc.ft.com:8080/content/55e40823-6804-4264-ac2f-b29e11bf756a"}`)
+
+	handler.HandleMessage(msg)
+	dispatcher.AssertNotCalled(t, "Send")
 }
 
 func TestFailsConversionToNotification(t *testing.T) {
@@ -87,7 +215,7 @@ func TestFailsConversionToNotification(t *testing.T) {
 
 	dispatcher := new(mocks.MockDispatcher)
 
-	handler := NewMessageQueueHandler(defaultWhitelist, mapper, dispatcher)
+	handler := NewMessageQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"},
 		`{"ContentURI": "http://list-transformer-pr-uk-up.svc.ft.com:8080/lists/blah/55e40823-6804-4264-ac2f-b29e11bf756a" + }`)
@@ -105,7 +233,7 @@ func TestHandleMessage(t *testing.T) {
 	dispatcher := new(mocks.MockDispatcher)
 	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
 
-	handler := NewMessageQueueHandler(defaultWhitelist, mapper, dispatcher)
+	handler := NewMessageQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"},
 		`{"UUID": "a uuid", "ContentURI": "http://list-transformer-pr-uk-up.svc.ft.com:8080/lists/blah/55e40823-6804-4264-ac2f-b29e11bf756a"}`)
@@ -121,7 +249,7 @@ func TestHandleMessageMappingError(t *testing.T) {
 	}
 
 	dispatcher := new(mocks.MockDispatcher)
-	handler := NewMessageQueueHandler(defaultWhitelist, mapper, dispatcher)
+	handler := NewMessageQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"},
 		`{"UUID": "", "ContentURI": "http://list-transformer-pr-uk-up.svc.ft.com:8080/lists/blah/abc"}`)
@@ -138,7 +266,7 @@ func TestDiscardStandardCarouselPublicationEvents(t *testing.T) {
 	}
 
 	dispatcher := new(mocks.MockDispatcher)
-	handler := NewMessageQueueHandler(defaultWhitelist, mapper, dispatcher)
+	handler := NewMessageQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg1 := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_fzy2uqund8_carousel_1485954245"},
 		`{"UUID": "a uuid", "ContentURI": "http://list-transformer-pr-uk-up.svc.ft.com:8080/lists/blah/55e40823-6804-4264-ac2f-b29e11bf756a"}`)
@@ -163,7 +291,7 @@ func TestDiscardCarouselPublicationEventsWithGeneratedTransactionID(t *testing.T
 	}
 
 	dispatcher := new(mocks.MockDispatcher)
-	handler := NewMessageQueueHandler(defaultWhitelist, mapper, dispatcher)
+	handler := NewMessageQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_fzy2uqund8_carousel_1485954245_gentx"},
 		`{"UUID": "a uuid", "ContentURI": "http://list-transformer-pr-uk-up.svc.ft.com:8080/lists/blah/55e40823-6804-4264-ac2f-b29e11bf756a"}`,

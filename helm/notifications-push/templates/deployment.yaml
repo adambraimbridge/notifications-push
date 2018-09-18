@@ -59,8 +59,10 @@ spec:
           value: "{{ .Values.env.CONSUMER_BACKOFF }}"
         - name: NOTIFICATIONS_RESOURCE
           value: {{ .Values.env.NOTIFICATIONS_RESOURCE }}
-        - name: WHITELIST
-          value: {{ .Values.env.WHITELIST }}
+        - name: CONTENT_URI_WHITELIST
+          value: {{ .Values.env.CONTENT_URI_WHITELIST }}
+        - name: CONTENT_TYPE_WHITELIST
+          value: {{ .Values.env.CONTENT_TYPE_WHITELIST }}
         ports:
         - containerPort: 8080
         livenessProbe:

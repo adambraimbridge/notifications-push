@@ -6,7 +6,28 @@ import (
 	log "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/Financial-Times/notifications-push/dispatch"
-)
+			)
+
+var exists = struct{}{}
+
+type Set struct {
+	m map[string]struct{}
+}
+
+func NewSet() *Set {
+	s := &Set{}
+	s.m = make(map[string]struct{})
+	return s
+}
+
+func (s *Set) Add(value string) {
+	s.m[value] = exists
+}
+
+func (s *Set) Contains(value string) bool {
+	_, c := s.m[value]
+	return c
+}
 
 // MessageQueueHandler is a generic interface for implementation of components to hendle messages form the kafka queue.
 type MessageQueueHandler interface {
@@ -14,17 +35,19 @@ type MessageQueueHandler interface {
 }
 
 type simpleMessageQueueHandler struct {
-	whiteList  *regexp.Regexp
-	mapper     NotificationMapper
-	dispatcher dispatch.Dispatcher
+	contentUriWhitelist  *regexp.Regexp
+	contentTypeWhitelist *Set
+	mapper               NotificationMapper
+	dispatcher           dispatch.Dispatcher
 }
 
 // NewMessageQueueHandler returns a new message handler
-func NewMessageQueueHandler(whitelist *regexp.Regexp, mapper NotificationMapper, dispatcher dispatch.Dispatcher) MessageQueueHandler {
+func NewMessageQueueHandler(contentUriWhitelist *regexp.Regexp, contentTypeWhitelist *Set, mapper NotificationMapper, dispatcher dispatch.Dispatcher) MessageQueueHandler {
 	return &simpleMessageQueueHandler{
-		whiteList:  whitelist,
-		mapper:     mapper,
-		dispatcher: dispatcher,
+		contentUriWhitelist:  contentUriWhitelist,
+		contentTypeWhitelist: contentTypeWhitelist,
+		mapper:               mapper,
+		dispatcher:           dispatcher,
 	}
 }
 
@@ -47,9 +70,17 @@ func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessag
 		return nil
 	}
 
-	if !pubEvent.Matches(qHandler.whiteList) {
-		log.WithField("transaction_id", msg.TransactionID()).WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: It is not in the whitelist.")
-		return nil
+	contentType := msg.Headers["Content-Type"]
+	if contentType == "application/json" || contentType == "" {
+		if !pubEvent.Matches(qHandler.contentUriWhitelist) {
+			log.WithField("transaction_id", msg.TransactionID()).WithField("contentUri", pubEvent.ContentURI).WithField("contentType", contentType).Info("Skipping event: contentUri is not in the whitelist.")
+			return nil
+		}
+	} else {
+		if !qHandler.contentTypeWhitelist.Contains(contentType) {
+			log.WithField("transaction_id", msg.TransactionID()).WithField("contentType", contentType).Info("Skipping event: contentType is not the whitelist.")
+			return nil
+		}
 	}
 
 	notification, err := qHandler.mapper.MapNotification(pubEvent, msg.TransactionID())
