@@ -70,6 +70,7 @@ func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessag
 		return nil
 	}
 
+	log.WithField("Whitelist", qHandler.contentTypeWhitelist).Info("Content-Type whitelist")
 	contentType := msg.Headers["Content-Type"]
 	if contentType == "application/json" || contentType == "" {
 		if !pubEvent.Matches(qHandler.contentUriWhitelist) {
