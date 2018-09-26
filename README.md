@@ -193,6 +193,10 @@ Clients
 
 Example client code is provided in `bin/client` directory
 
+### Logging
+
+* The application uses [go-logger](https://github.com/Financial-Times/go-logger ); the log file is initialised in [main.go](main.go).
+
 Useful Links
 ------------
 * Production: 
@@ -204,4 +208,5 @@ Useful Links
 [https://prod-coco-up-read.ft.com/content/notifications-push](#https://prod-coco-up-read.ft.com/content/notifications-push) (needs credentials) 
 
 [https://prod-coco-up-read.ft.com/lists/notifications-push](#https://prod-coco-up-read.ft.com/lists/notifications-push) (needs credentials)
+
 

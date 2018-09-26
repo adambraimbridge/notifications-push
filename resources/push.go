@@ -54,7 +54,7 @@ func Push(reg dispatch.Registrar, apiGatewayKeyValidationURL string, httpClient 
 
 		contentTypeParam, err := resolveContentType(r)
 		if err != nil {
-			log.WithError(err).Error("Invalid content type")
+			log.WithField("event", "NotificationsPush").WithField("monitoring_event", "true").WithError(err).Error("Invalid content type")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -93,7 +93,9 @@ func Push(reg dispatch.Registrar, apiGatewayKeyValidationURL string, httpClient 
 				logSuccessForHeartbeatMessage(notification, s)
 
 			case <-cn.CloseNotify():
-				log.WithField("subscriberId", s.Id()).
+				log.WithField("event", "NotificationsPush").
+					WithField("monitoring_event", "true").
+					WithField("subscriberId", s.Id()).
 					WithField("subscriber", s.Address()).
 					Info("Notification subscriber disconnected remotely")
 				return
@@ -104,14 +106,18 @@ func Push(reg dispatch.Registrar, apiGatewayKeyValidationURL string, httpClient 
 
 func logSuccessForHeartbeatMessage(notification string, s dispatch.Subscriber) {
 	if notification == dispatch.HeartbeatMsg {
-		log.WithField("subscriberId", s.Id()).
+		log.WithField("event", "NotificationsPush").
+			WithField("monitoring_event", "true").
+			WithField("subscriberId", s.Id()).
 			WithField("subscriber", s.Address()).
 			Info("Heartbeat sent to subscriber successfully")
 	}
 }
 
 func logNotificationError(s dispatch.Subscriber, notification string, err error) {
-	withError := log.WithField("subscriberId", s.Id()).
+	withError := log.WithField("event", "NotificationsPush").
+		WithField("monitoring_event", "true").
+		WithField("subscriberId", s.Id()).
 		WithField("subscriber", s.Address()).
 		WithError(err)
 

@@ -95,15 +95,28 @@ func main() {
 		EnvVar: "CONTENT_TYPE_WHITELIST",
 	})
 
-	log.InitLogger(serviceName, "info")
+	appName := app.String(cli.StringOpt{
+		Name:   "app-name",
+		Value:  "notifications-push",
+		Desc:   "Application name",
+		EnvVar: "APP_NAME",
+	})
 
-	log.WithFields(map[string]interface{}{
+	logLevel := app.String(cli.StringOpt{
+		Name:   "logLevel",
+		Value:  "INFO",
+		Desc:   "Logging level (DEBUG, INFO, WARN, ERROR)",
+		EnvVar: "LOG_LEVEL",
+	})
+
+	app.Action = func() {
+		log.InitLogger(*appName, *logLevel)
+		log.WithFields(map[string]interface{}{
 		"KAFKA_TOPIC": *topic,
 		"GROUP_ID":    *consumerGroupID,
 		"KAFKA_ADDRS": *consumerAddrs,
 	}).Infof("[Startup] notifications-push is starting ")
 
-	app.Action = func() {
 		errCh := make(chan error, 2)
 		defer close(errCh)
 		var fatalErrs = []error{kazoo.ErrPartitionNotClaimed, zk.ErrNoServer}
