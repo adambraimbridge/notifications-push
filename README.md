@@ -195,7 +195,7 @@ Example client code is provided in `bin/client` directory
 
 ### Logging
 
-* The application uses [go-logger](https://github.com/Financial-Times/go-logger ); the log file is initialised in [main.go](main.go).
+* The application uses [go-logger](https://github.com/Financial-Times/go-logger ); the log file is initialised in [app.go](app.go).
 
 Useful Links
 ------------
