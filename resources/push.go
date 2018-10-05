@@ -17,7 +17,7 @@ const (
 	defaultContentType = "Article"
 )
 
-var supportedContentTypes = []string{"Article", "ContentPackage", "All"}
+var supportedContentTypes = []string{"Article", "ContentPackage", "Audio", "All"}
 
 //ApiKey is provided either as a request param or as a header.
 func getApiKey(r *http.Request) string {
