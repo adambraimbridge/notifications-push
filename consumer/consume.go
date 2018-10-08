@@ -53,47 +53,45 @@ func NewMessageQueueHandler(contentUriWhitelist *regexp.Regexp, contentTypeWhite
 
 func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessage) error {
 	msg := NotificationQueueMessage{queueMsg}
-	contentType := msg.Headers["Content-Type"]
 	tid := msg.TransactionID()
 	pubEvent, err := msg.ToPublicationEvent()
+	contentType := msg.Headers["Content-Type"]
 
-	log.WithMonitoringEvent("NotificationsPush", tid, contentType)
+	monitoringLogger :=log.WithMonitoringEvent("NotificationsPush", tid, contentType)
 	if err != nil {
-		log.WithField("msg", msg.Body).WithError(err).Warn("Skipping event.")
+		monitoringLogger.WithField("msg", msg.Body).WithError(err).Warn("Skipping event.")
 		return err
 	}
 
 	if msg.HasCarouselTransactionID() {
-		log.WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: Carousel publish event.")
+		monitoringLogger.WithValidFlag(false).WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: Carousel publish event.")
 		return nil
 	}
 
 	if msg.HasSynthTransactionID() {
-		log.WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: Synthetic transaction ID.")
+		monitoringLogger.WithValidFlag(false).WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: Synthetic transaction ID.")
 		return nil
 	}
 
-
 	if contentType == "application/json" || contentType == "" {
 		if !pubEvent.Matches(qHandler.contentUriWhitelist) {
-			log.WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: contentUri is not in the whitelist.")
+			monitoringLogger.WithValidFlag(false).WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: contentUri is not in the whitelist.")
 			return nil
 		}
 	} else {
 		if !qHandler.contentTypeWhitelist.Contains(contentType) {
-			log.Info("Skipping event: contentType is not the whitelist.")
+			monitoringLogger.WithValidFlag(false).Info("Skipping event: contentType is not the whitelist.")
 			return nil
 		}
 	}
 
 	notification, err := qHandler.mapper.MapNotification(pubEvent, msg.TransactionID())
 	if err != nil {
-		log.WithField("msg", string(msg.Body)).WithError(err).Warn("Skipping event: Cannot build notification for message.")
+		monitoringLogger.WithField("msg", string(msg.Body)).WithError(err).Warn("Skipping event: Cannot build notification for message.")
 		return err
 	}
-
-	log.WithField("resource", notification.APIURL).WithField("publish_reference", notification.PublishReference).Info("Valid notification received")
 	qHandler.dispatcher.Send(notification)
+	monitoringLogger.WithField("resource", notification.APIURL).Info("Valid notification received")
 
 	return nil
 }

@@ -15,14 +15,14 @@ func History(history dispatch.History) func(w http.ResponseWriter, r *http.Reque
 
 		historyJSON, err := dispatch.MarshalNotificationsJSON(history.Notifications())
 		if err != nil {
-			log.WithField("event", "NotificationsPus").WithField("monitoring_event", "true").WithError(err).Warn(errMsg)
+			log.WithError(err).Warn(errMsg)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		_, err = w.Write(historyJSON)
 		if err != nil {
-			log.WithField("event", "NotificationsPush").WithField("monitoring_event", "true").WithError(err).Warn(errMsg)
+			log.WithError(err).Warn(errMsg)
 			http.Error(w, "", http.StatusInternalServerError)
 		}
 	}

@@ -25,10 +25,11 @@ import (
 const (
 	heartbeatPeriod = 30 * time.Second
 	serviceName     = "notifications-push"
+	appDescription  = "Proactively notifies subscribers about new publishes/modifications."
 )
 
 func main() {
-	app := cli.App(serviceName, "Proactively notifies subscribers about new publishes/modifications.")
+	app := cli.App(serviceName, appDescription)
 	resource := app.String(cli.StringOpt{
 		Name:   "notifications_resource",
 		Value:  "",
@@ -95,13 +96,6 @@ func main() {
 		EnvVar: "CONTENT_TYPE_WHITELIST",
 	})
 
-	appName := app.String(cli.StringOpt{
-		Name:   "app-name",
-		Value:  "notifications-push",
-		Desc:   "Application name",
-		EnvVar: "APP_NAME",
-	})
-
 	logLevel := app.String(cli.StringOpt{
 		Name:   "logLevel",
 		Value:  "INFO",
@@ -109,14 +103,14 @@ func main() {
 		EnvVar: "LOG_LEVEL",
 	})
 
-	app.Action = func() {
-		log.InitLogger(*appName, *logLevel)
-		log.WithFields(map[string]interface{}{
+	log.InitLogger(serviceName, *logLevel)
+	log.WithFields(map[string]interface{}{
 		"KAFKA_TOPIC": *topic,
 		"GROUP_ID":    *consumerGroupID,
 		"KAFKA_ADDRS": *consumerAddrs,
 	}).Infof("[Startup] notifications-push is starting ")
 
+	app.Action = func() {
 		errCh := make(chan error, 2)
 		defer close(errCh)
 		var fatalErrs = []error{kazoo.ErrPartitionNotClaimed, zk.ErrNoServer}
