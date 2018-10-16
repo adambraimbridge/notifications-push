@@ -8,6 +8,7 @@ import (
 
 	"errors"
 
+	"github.com/Financial-Times/go-logger"
 	logTest "github.com/Financial-Times/go-logger/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -51,9 +52,9 @@ var n3 = Notification{
 
 var zeroTime = time.Time{}
 
-// func init() {
-// 	logger.InitDefaultLogger("notifications-push")
-// }
+func init() {
+	logger.InitDefaultLogger("notifications-push")
+}
 
 func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 	h := NewHistory(historySize)
