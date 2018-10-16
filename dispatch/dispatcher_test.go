@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"errors"
-	"github.com/Financial-Times/go-logger"
+
 	logTest "github.com/Financial-Times/go-logger/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -51,9 +51,9 @@ var n3 = Notification{
 
 var zeroTime = time.Time{}
 
-func init() {
-	logger.InitDefaultLogger("notifications-push")
-}
+// func init() {
+// 	logger.InitDefaultLogger("notifications-push")
+// }
 
 func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 	h := NewHistory(historySize)
@@ -92,6 +92,7 @@ func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 
 func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 	hook := logTest.NewTestHook("notifications-push")
+	defer hook.Reset()
 
 	h := NewHistory(historySize)
 	d := NewDispatcher(delay, heartbeat, h)
@@ -339,9 +340,10 @@ func TestDispatchedNotificationsInHistory(t *testing.T) {
 
 func TestShouldNotificationsToSubscribersFailed(t *testing.T) {
 	hook := logTest.NewTestHook("notifications-push")
+	defer hook.Reset()
 
 	h := NewHistory(historySize)
-	d := NewDispatcher(delay, heartbeat, h)
+	d := NewDispatcher(0, heartbeat, h)
 
 	s1 := new(MockSubscriber)
 	s2 := new(MockSubscriber)
@@ -355,12 +357,9 @@ func TestShouldNotificationsToSubscribersFailed(t *testing.T) {
 	d.Register(s3)
 
 	d.Send(n1)
-	time.Sleep(3 * time.Second)
-
 	readFromSubscriberChannel(t, s1)
 	readFromSubscriberChannel(t, s2)
 	readFromSubscriberChannel(t, s3)
-
 	for _, e := range hook.AllEntries() {
 		switch e.Message {
 		case "Processed subscribers. Failed to send notifications":
