@@ -76,13 +76,13 @@ func (d *dispatcher) forwardToSubscribers(notification Notification) {
 
 	var sent, failed, skipped int
 	defer func() {
-		if sent > 0 {
+		if len(d.subscribers) == 0 || sent > 0 || len(d.subscribers) == skipped {
 			log.WithMonitoringEvent("NotificationsPush", notification.PublishReference, notification.ContentType).
 				WithFields(map[string]interface{}{"resource": notification.APIURL, "sent": sent, "failed": failed, "skipped": skipped}).
 				Info("Processed subscribers.")
 		} else {
 			log.WithFields(map[string]interface{}{"transaction_id": notification.PublishReference, "resource": notification.APIURL, "sent": sent, "failed": failed, "skipped": skipped}).
-				Info("Processed subscribers.")
+				Error("Processed subscribers. Failed to send notifications")
 		}
 	}()
 

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Financial-Times/go-logger"
 	logTest "github.com/Financial-Times/go-logger/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,7 +37,21 @@ var n2 = Notification{
 	PublishReference: "tid_test2",
 	LastModified:     "2016-11-02T10:55:24.244Z",
 }
+
+var n3 = Notification{
+	APIURL:           "http://api.ft.com/content/7998974a-1e97-11e6-b286-cddde55ca122",
+	ID:               "http://www.ft.com/thing/7998974a-1e97-11e6-b286-cddde55ca122",
+	Type:             "http://www.ft.com/thing/ThingChangeType/DELETE",
+	PublishReference: "tid_test3",
+	LastModified:     "2016-11-02T10:56:24.244Z",
+	ContentType:      "Article",
+}
+
 var zeroTime = time.Time{}
+
+func init() {
+	logger.InitDefaultLogger("notifications-push")
+}
 
 func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 	h := NewHistory(historySize)

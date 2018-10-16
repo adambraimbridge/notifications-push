@@ -57,9 +57,9 @@ func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessag
 	pubEvent, err := msg.ToPublicationEvent()
 	contentType := msg.Headers["Content-Type"]
 
-	monitoringLogger :=log.WithMonitoringEvent("NotificationsPush", tid, contentType)
+	monitoringLogger := log.WithMonitoringEvent("NotificationsPush", tid, contentType)
 	if err != nil {
-		monitoringLogger.WithField("msg", msg.Body).WithError(err).Warn("Skipping event.")
+		monitoringLogger.WithField("message_body", msg.Body).WithError(err).Warn("Skipping event.")
 		return err
 	}
 
@@ -87,11 +87,12 @@ func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessag
 
 	notification, err := qHandler.mapper.MapNotification(pubEvent, msg.TransactionID())
 	if err != nil {
-		monitoringLogger.WithField("msg", string(msg.Body)).WithError(err).Warn("Skipping event: Cannot build notification for message.")
+		monitoringLogger.WithField("message_body", string(msg.Body)).WithError(err).Warn("Skipping event: Cannot build notification for message.")
 		return err
 	}
+
+	log.WithField("resource", notification.APIURL).WithField("transaction_id", notification.PublishReference).Info("Valid notification received")
 	qHandler.dispatcher.Send(notification)
-	monitoringLogger.WithField("resource", notification.APIURL).Info("Valid notification received")
 
 	return nil
 }
