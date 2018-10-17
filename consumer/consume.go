@@ -2,11 +2,11 @@ package consumer
 
 import (
 	"regexp"
+	"strings"
 
 	log "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/Financial-Times/notifications-push/dispatch"
-	strings "strings"
 )
 
 var exists = struct{}{}
