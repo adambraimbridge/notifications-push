@@ -6,6 +6,7 @@ import (
 	log "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/Financial-Times/notifications-push/dispatch"
+	strings "strings"
 )
 
 var exists = struct{}{}
@@ -73,13 +74,14 @@ func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessag
 		return nil
 	}
 
-	if contentType == "application/json" || contentType == "" {
+	strippedDirectivesContentType := StripDirectives(contentType)
+	if strippedDirectivesContentType == "application/json" || strippedDirectivesContentType == "" {
 		if !pubEvent.Matches(qHandler.contentUriWhitelist) {
 			monitoringLogger.WithValidFlag(false).WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: contentUri is not in the whitelist.")
 			return nil
 		}
 	} else {
-		if !qHandler.contentTypeWhitelist.Contains(contentType) {
+		if !qHandler.contentTypeWhitelist.Contains(strippedDirectivesContentType) {
 			monitoringLogger.WithValidFlag(false).Info("Skipping event: contentType is not the whitelist.")
 			return nil
 		}
@@ -87,7 +89,7 @@ func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessag
 
 	notification, err := qHandler.mapper.MapNotification(pubEvent, msg.TransactionID())
 	if err != nil {
-		monitoringLogger.WithField("message_body", string(msg.Body)).WithError(err).Warn("Skipping event: Cannot build notification for message.")
+		monitoringLogger.WithError(err).Warn("Skipping event: Cannot build notification for message.")
 		return err
 	}
 
@@ -95,4 +97,8 @@ func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessag
 	qHandler.dispatcher.Send(notification)
 
 	return nil
+}
+
+func StripDirectives(contentType string) string {
+	return strings.Split(contentType, ";")[0]
 }

@@ -97,8 +97,9 @@ func TestAcceptNotificationBasedOnContentType(t *testing.T) {
 
 	handler := NewMessageQueueHandler(defaultContentUriWhitelist, contentTypeWhitelist, mapper, dispatcher)
 
-	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin", "Content-Type": "application/vnd.ft-upp-article+json"},
+	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin", "Content-Type": "application/vnd.ft-upp-article+json; version=1.0; charset=utf-8"},
 	`{"ContentURI": "http://not-in-the-whitelist.svc.ft.com:8080/lists/blah/55e40823-6804-4264-ac2f-b29e11bf756a"}`)
+
 
 	err := handler.HandleMessage(msg)
 	assert.NoError(t, err)
