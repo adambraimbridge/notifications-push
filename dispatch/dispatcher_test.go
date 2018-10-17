@@ -351,16 +351,23 @@ func TestShouldNotificationsToSubscribersFailed(t *testing.T) {
 	d.Send(n1)
 
 	time.Sleep(time.Second)
-    logger.Info("test")
+	logger.Info("This log message is here to avoid a race condition")
+
+	foundLog := false
+	logOccurrence := 0
 	for _, e := range hook.AllEntries() {
 		switch e.Message {
 		case "Processed subscribers. Failed to send notifications":
 			assert.Equal(t, 0, e.Data["sent"], "sent")
 			assert.Equal(t, 3, e.Data["failed"], "failed")
 			assert.Equal(t, 0, e.Data["skipped"], "skipped")
+			logOccurrence++
+			foundLog = true
 		default:
 		}
 	}
+	assert.True(t, foundLog)
+	assert.Equal(t, 1, logOccurrence)
 }
 
 func verifyNotificationResponse(t *testing.T, expected Notification, notBefore time.Time, notAfter time.Time, actualMsg string) {
@@ -429,13 +436,4 @@ func (_m *MockSubscriber) NotificationChannel() chan string {
 // Since provides a mock function with given fields:
 func (_m *MockSubscriber) Since() time.Time {
 	return time.Now()
-}
-
-func readFromSubscriberChannel(t *testing.T, s *MockSubscriber) {
-	select {
-	case _ = <-s.NotificationChannel():
-		assert.True(t, false)
-	default:
-		assert.True(t, true)
-	}
 }
