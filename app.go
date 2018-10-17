@@ -25,10 +25,11 @@ import (
 const (
 	heartbeatPeriod = 30 * time.Second
 	serviceName     = "notifications-push"
+	appDescription  = "Proactively notifies subscribers about new publishes/modifications."
 )
 
 func main() {
-	app := cli.App(serviceName, "Proactively notifies subscribers about new publishes/modifications.")
+	app := cli.App(serviceName, appDescription)
 	resource := app.String(cli.StringOpt{
 		Name:   "notifications_resource",
 		Value:  "",
@@ -95,8 +96,14 @@ func main() {
 		EnvVar: "CONTENT_TYPE_WHITELIST",
 	})
 
-	log.InitLogger(serviceName, "info")
+	logLevel := app.String(cli.StringOpt{
+		Name:   "logLevel",
+		Value:  "INFO",
+		Desc:   "Logging level (DEBUG, INFO, WARN, ERROR)",
+		EnvVar: "LOG_LEVEL",
+	})
 
+	log.InitLogger(serviceName, *logLevel)
 	log.WithFields(map[string]interface{}{
 		"KAFKA_TOPIC": *topic,
 		"GROUP_ID":    *consumerGroupID,
