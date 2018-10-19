@@ -6,7 +6,7 @@ import (
 	log "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/Financial-Times/notifications-push/dispatch"
-			)
+)
 
 var exists = struct{}{}
 
@@ -83,6 +83,7 @@ func (qHandler *simpleMessageQueueHandler) HandleMessage(queueMsg kafka.FTMessag
 		}
 	}
 
+	pubEvent.ContentTypeHeader = contentType
 	notification, err := qHandler.mapper.MapNotification(pubEvent, msg.TransactionID())
 	if err != nil {
 		log.WithField("transaction_id", msg.TransactionID()).WithField("msg", string(msg.Body)).WithError(err).Warn("Skipping event: Cannot build notification for message.")
