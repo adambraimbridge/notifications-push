@@ -85,7 +85,7 @@ func TestMapToDeleteNotification_ContentTypeHeader(t *testing.T) {
 
 	n, err := mapper.MapNotification(event, "tid_test1")
 
-	assert.Equal(t, "http://www.ft.com/thing/ThingChangeType/DELETE", n.Type, "It is an UPDATE notification")
+	assert.Equal(t, "http://www.ft.com/thing/ThingChangeType/DELETE", n.Type, "It should be a DELETE notification")
 	assert.Equal(t, "Article", n.ContentType, "ContentType should be mapped based on the message header")
 	assert.Nil(t, err, "The mapping should not return an error")
 }
