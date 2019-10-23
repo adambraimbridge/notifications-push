@@ -11,11 +11,9 @@ How to Build & Run the binary
 
 1. Install, build and test:
 ```
-curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-go get -u github.com/Financial-Times/notifications-push
+go get github.com/Financial-Times/notifications-push
 cd $GOPATH/src/github.com/Financial-Times/notifications-push
 
-dep ensure -vendor-only
 go test ./... -race
 go install
 ```
@@ -23,7 +21,8 @@ go install
 
 * Create tunnel to the Kafka service inside the cluster for ports 2181 and 9092 (use the public IP):
 ```
-ssh -L 2181:localhost:2181 -L 9092:localhost:9092 username@<host>
+kubectl port-forward service/kafka-zookeeper 2181
+kubectl port-forward kafka-0 9092
 ```
 
 * Add the private DNS of the Kafka machine to the hosts file:
@@ -54,9 +53,9 @@ export NOTIFICATIONS_RESOURCE=content \
     --consumer_group_id="notifications-push" \
     --topic="PostPublicationEvents" \
     --notifications_delay=10 \
-    --api-base-url="http://api.ft.com" \
+    --api_base_url="http://api.ft.com" \
     --api_key_validation_endpoint="t800/a" \
-    --content_type_whitelist="application/vnd.ft-upp-article+json,application/vnd.ft-upp-content-package+json" \
+    --content_type_whitelist="application/vnd.ft-upp-article+json" --content_type_whitelist="application/vnd.ft-upp-content-package+json" \
     --content_uri_whitelist="^http://(methode|wordpress|content)-(article|collection|content-placeholder)-(transformer|mapper|unfolder)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$"
 ```
 
