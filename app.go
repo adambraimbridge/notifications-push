@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	stdlog "log"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -126,6 +128,7 @@ func main() {
 		go supervisor.Supervise()
 
 		consumerConfig := kafka.DefaultConsumerConfig()
+		consumerConfig.Zookeeper.Logger = stdlog.New(ioutil.Discard, "", 0)
 		messageConsumer, err := kafka.NewConsumer(kafka.Config{
 			ZookeeperConnectionString: *consumerAddrs,
 			ConsumerGroup:             *consumerGroupID,

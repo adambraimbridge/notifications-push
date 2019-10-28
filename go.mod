@@ -20,7 +20,7 @@ require (
 	github.com/satori/go.uuid v1.1.1-0.20170321230731-5bf94b69c6b6
 	github.com/sirupsen/logrus v1.0.4 // indirect
 	github.com/stretchr/testify v1.3.0
-	github.com/wvanbergen/kazoo-go v0.0.0-20160930072434-968957352185
+	github.com/wvanbergen/kazoo-go v0.0.0-20180202103751-f72d8611297a
 	golang.org/x/time v0.0.0-20191023065245-6d3f0bb11be5 // indirect
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
 	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
