@@ -5,7 +5,8 @@ import (
 	"net/http"
 
 	log "github.com/Financial-Times/go-logger"
-	"github.com/Financial-Times/notifications-push/dispatch"
+
+	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
 type subscriptionStats struct {

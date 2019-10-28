@@ -10,16 +10,18 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/Financial-Times/go-logger"
-	"github.com/Financial-Times/kafka-client-go/kafka"
-	queueConsumer "github.com/Financial-Times/notifications-push/consumer"
-	"github.com/Financial-Times/notifications-push/dispatch"
-	"github.com/Financial-Times/notifications-push/resources"
-	"github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
 	"github.com/samuel/go-zookeeper/zk"
-	"github.com/wvanbergen/kazoo-go"
+	kazoo "github.com/wvanbergen/kazoo-go"
+
+	log "github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/kafka-client-go/kafka"
+	"github.com/Financial-Times/service-status-go/httphandlers"
+
+	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
+	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/Financial-Times/notifications-push/v4/resources"
 )
 
 const (

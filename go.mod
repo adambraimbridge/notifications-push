@@ -1,4 +1,4 @@
-module github.com/Financial-Times/notifications-push
+module github.com/Financial-Times/notifications-push/v4
 
 go 1.13
 
