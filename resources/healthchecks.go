@@ -10,6 +10,8 @@ import (
 	"github.com/Financial-Times/service-status-go/gtg"
 )
 
+const panicGuideURL = "https://runbooks.in.ft.com/upp-notifications-push"
+
 type HealthCheckHttpClient interface {
 	GetStatusCode(url string) (int, error)
 }
@@ -58,7 +60,7 @@ func (h *HealthCheck) queueCheck() fthealth.Check {
 		Severity:         1,
 		BusinessImpact:   "Notifications about newly modified/published content will not reach this app, nor will they reach its clients.",
 		TechnicalSummary: "Message queue is not reachable/healthy",
-		PanicGuide:       "https://dewey.ft.com/upp-notifications-push.html",
+		PanicGuide:       panicGuideURL,
 		Checker:          h.checkAggregateMessageQueueReachable,
 	}
 }
@@ -93,7 +95,7 @@ func (h *HealthCheck) apiGatewayCheck() fthealth.Check {
 		Severity:         1,
 		BusinessImpact:   "If apiGateway service is not available, consumer's helthcheck will return false ",
 		TechnicalSummary: "Checking if apiGateway service is available or not",
-		PanicGuide:       "https://dewey.ft.com/upp-notifications-push.html",
+		PanicGuide:       panicGuideURL,
 		Checker:          h.checkApiGatewayService,
 	}
 }

@@ -4,11 +4,13 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/Financial-Times/go-logger"
-	"github.com/Financial-Times/kafka-client-go/kafka"
-	"github.com/Financial-Times/notifications-push/test/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	logger "github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/kafka-client-go/kafka"
+
+	"github.com/Financial-Times/notifications-push/v4/test/mocks"
 )
 
 var defaultContentUriWhitelist = regexp.MustCompile(`^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/(lists)/[\w-]+.*$`)

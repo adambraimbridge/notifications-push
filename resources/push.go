@@ -2,13 +2,14 @@ package resources
 
 import (
 	"bufio"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"fmt"
 	log "github.com/Financial-Times/go-logger"
-	"github.com/Financial-Times/notifications-push/dispatch"
+
+	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
 const (

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/Financial-Times/notifications-push/dispatch"
+	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
 // NotificationMapper maps CmsPublicationEvents to Notifications

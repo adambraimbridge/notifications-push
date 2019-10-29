@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Financial-Times/notifications-push/dispatch"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
 // MockDispatcher is a mock of a dispatcher that can be reused for testing

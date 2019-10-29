@@ -6,7 +6,8 @@ import (
 
 	log "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
-	"github.com/Financial-Times/notifications-push/dispatch"
+
+	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
 var exists = struct{}{}

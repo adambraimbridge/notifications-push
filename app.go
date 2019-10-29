@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	stdlog "log"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -10,16 +12,18 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/Financial-Times/go-logger"
-	"github.com/Financial-Times/kafka-client-go/kafka"
-	queueConsumer "github.com/Financial-Times/notifications-push/consumer"
-	"github.com/Financial-Times/notifications-push/dispatch"
-	"github.com/Financial-Times/notifications-push/resources"
-	"github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
 	"github.com/samuel/go-zookeeper/zk"
-	"github.com/wvanbergen/kazoo-go"
+	kazoo "github.com/wvanbergen/kazoo-go"
+
+	log "github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/kafka-client-go/kafka"
+	"github.com/Financial-Times/service-status-go/httphandlers"
+
+	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
+	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/Financial-Times/notifications-push/v4/resources"
 )
 
 const (
@@ -124,6 +128,7 @@ func main() {
 		go supervisor.Supervise()
 
 		consumerConfig := kafka.DefaultConsumerConfig()
+		consumerConfig.Zookeeper.Logger = stdlog.New(ioutil.Discard, "", 0)
 		messageConsumer, err := kafka.NewConsumer(kafka.Config{
 			ZookeeperConnectionString: *consumerAddrs,
 			ConsumerGroup:             *consumerGroupID,
