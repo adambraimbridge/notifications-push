@@ -72,21 +72,7 @@ func TestHealthcheck(t *testing.T) {
 			expectedOk: false,
 		},
 		{
-			name: "Fail because of ApiGateway endpoint",
-			httpClientMock: &HttpClientMock{
-				GetStatusCodeF: func(url string) (int, error) {
-					return 404, nil
-				},
-			},
-			kafkaConsumerMock: &KafkaConsumerMock{
-				ConnectivityCheckF: func() error {
-					return nil
-				},
-			},
-			expectedOk: false,
-		},
-		{
-			name: "Sucess when APIGateway returns 500",
+			name: "Fail because of ApiGateway does not return 200 OK",
 			httpClientMock: &HttpClientMock{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 403, nil
@@ -97,7 +83,7 @@ func TestHealthcheck(t *testing.T) {
 					return nil
 				},
 			},
-			expectedOk: true,
+			expectedOk: false,
 		},
 	}
 

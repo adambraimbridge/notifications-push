@@ -107,7 +107,7 @@ func (h *HealthCheck) checkApiGatewayService() (string, error) {
 		return "", err
 	}
 
-	if statusCode == http.StatusOK || statusCode == http.StatusForbidden {
+	if statusCode == http.StatusOK {
 		return "ApiGateway service is working", nil
 	}
 
