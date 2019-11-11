@@ -7,23 +7,22 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"time"
 
+	log "github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/kafka-client-go/kafka"
+	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
+	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/Financial-Times/notifications-push/v4/resources"
+	"github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
 	"github.com/samuel/go-zookeeper/zk"
 	kazoo "github.com/wvanbergen/kazoo-go"
-
-	log "github.com/Financial-Times/go-logger"
-	"github.com/Financial-Times/kafka-client-go/kafka"
-	"github.com/Financial-Times/service-status-go/httphandlers"
-
-	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
-	"github.com/Financial-Times/notifications-push/v4/resources"
 )
 
 const (
@@ -65,6 +64,12 @@ func main() {
 		Value:  "t800/a",
 		Desc:   "The API Gateway ApiKey validation endpoint",
 		EnvVar: "API_KEY_VALIDATION_ENDPOINT",
+	})
+	apiGatewayHealthcheckEndpoint := app.String(cli.StringOpt{
+		Name:   "api_healthcheck_endpoint",
+		Value:  "/t800-healthcheck",
+		Desc:   "The API Gateway healthcheck endpoint",
+		EnvVar: "API_HEALTHCHECK_ENDPOINT",
 	})
 	topic := app.String(cli.StringOpt{
 		Name:   "topic",
@@ -166,8 +171,23 @@ func main() {
 			log.WithError(err).Fatal("Whitelist regex MUST compile!")
 		}
 
+		apiGatewayHealthcheckURL, err := url.Parse(*apiBaseURL)
+		if err != nil {
+			log.WithError(err).Fatal("cannot parse api_base_url")
+		}
+
+		r, err := url.Parse(*apiGatewayHealthcheckEndpoint)
+		if err != nil {
+			log.WithError(err).Fatal("cannot parse api_healthcheck_endpoint")
+		}
+
+		apiGatewayHealthcheckURL = apiGatewayHealthcheckURL.ResolveReference(r)
+
+		hc := resources.NewHealthCheck(messageConsumer, apiGatewayHealthcheckURL.String(), &resources.HttpClient{})
+
 		apiGatewayKeyValidationURL := fmt.Sprintf("%s/%s", *apiBaseURL, *apiKeyValidationEndpoint)
-		go server(":"+strconv.Itoa(*port), *resource, dispatcher, history, messageConsumer, apiGatewayKeyValidationURL, httpClient)
+
+		go server(":"+strconv.Itoa(*port), *resource, dispatcher, history, messageConsumer, apiGatewayKeyValidationURL, httpClient, hc)
 
 		ctWhitelist := queueConsumer.NewSet()
 		for _, value := range *contentTypeWhitelist {
@@ -183,7 +203,7 @@ func main() {
 	}
 }
 
-func server(listen string, resource string, dispatcher dispatch.Dispatcher, history dispatch.History, consumer kafka.Consumer, apiGatewayKeyValidationURL string, httpClient *http.Client) {
+func server(listen string, resource string, dispatcher dispatch.Dispatcher, history dispatch.History, consumer kafka.Consumer, apiGatewayKeyValidationURL string, httpClient *http.Client, hc *resources.HealthCheck) {
 	notificationsPushPath := "/" + resource + "/notifications-push"
 
 	r := mux.NewRouter()
@@ -191,9 +211,6 @@ func server(listen string, resource string, dispatcher dispatch.Dispatcher, hist
 	r.HandleFunc(notificationsPushPath, resources.Push(dispatcher, apiGatewayKeyValidationURL, httpClient)).Methods("GET")
 	r.HandleFunc("/__history", resources.History(history)).Methods("GET")
 	r.HandleFunc("/__stats", resources.Stats(dispatcher)).Methods("GET")
-
-	healthCheckHttpClient := &resources.HttpClient{}
-	hc := resources.NewHealthCheck(consumer, apiGatewayKeyValidationURL, healthCheckHttpClient)
 
 	r.HandleFunc("/__health", hc.Health())
 	r.HandleFunc(httphandlers.GTGPath, httphandlers.NewGoodToGoHandler(hc.GTG))
