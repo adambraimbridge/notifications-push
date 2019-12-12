@@ -70,11 +70,17 @@ func main() {
 		Desc:   "The API Gateway healthcheck endpoint",
 		EnvVar: "API_HEALTHCHECK_ENDPOINT",
 	})
-	topic := app.String(cli.StringOpt{
+	contentTopic := app.String(cli.StringOpt{
 		Name:   "topic",
 		Value:  "",
 		Desc:   "Kafka topic to read from.",
 		EnvVar: "TOPIC",
+	})
+	metadataTopic := app.String(cli.StringOpt{
+		Name:   "metadata_topic",
+		Value:  "",
+		Desc:   "Kafka topic for annotation changes.",
+		EnvVar: "METADATA_TOPIC",
 	})
 	port := app.Int(cli.IntOpt{
 		Name:   "port",
@@ -115,9 +121,10 @@ func main() {
 
 	log.InitLogger(serviceName, *logLevel)
 	log.WithFields(map[string]interface{}{
-		"KAFKA_TOPIC": *topic,
-		"GROUP_ID":    *consumerGroupID,
-		"KAFKA_ADDRS": *consumerAddrs,
+		"CONTENT_TOPIC":  *contentTopic,
+		"METADATA_TOPIC": *metadataTopic,
+		"GROUP_ID":       *consumerGroupID,
+		"KAFKA_ADDRS":    *consumerAddrs,
 	}).Infof("[Startup] notifications-push is starting ")
 
 	app.Action = func() {
@@ -136,9 +143,12 @@ func main() {
 		messageConsumer, err := kafka.NewConsumer(kafka.Config{
 			ZookeeperConnectionString: *consumerAddrs,
 			ConsumerGroup:             *consumerGroupID,
-			Topics:                    []string{*topic},
-			ConsumerGroupConfig:       consumerConfig,
-			Err:                       errCh,
+			Topics: []string{
+				*contentTopic,
+				*metadataTopic,
+			},
+			ConsumerGroupConfig: consumerConfig,
+			Err:                 errCh,
 		})
 		if err != nil {
 			log.WithError(err).Fatal("Cannot create Kafka client")

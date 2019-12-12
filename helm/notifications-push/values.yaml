@@ -17,6 +17,7 @@ resources:
 env:
   GROUP_ID: ""
   TOPIC: ""
+  METADATA_TOPIC: ""
   CONSUMER_BACKOFF: ""
   NOTIFICATIONS_RESOURCE: ""
   WHITELIST:  ""

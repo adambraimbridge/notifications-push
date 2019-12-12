@@ -50,6 +50,8 @@ spec:
               fieldPath: metadata.name
         - name: TOPIC
           value: {{ .Values.env.TOPIC }}
+        - name: METADATA_TOPIC
+          value: {{ .Values.env.METADATA_TOPIC }}
         - name: NOTIFICATIONS_DELAY
           valueFrom:
             configMapKeyRef:
