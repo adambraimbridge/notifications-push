@@ -202,7 +202,7 @@ func main() {
 		for _, value := range *contentTypeWhitelist {
 			ctWhitelist.Add(value)
 		}
-		queueHandler := queueConsumer.NewMessageQueueHandler(whitelistR, ctWhitelist, mapper, dispatcher)
+		queueHandler := queueConsumer.NewContentQueueHandler(whitelistR, ctWhitelist, mapper, dispatcher)
 		pushService := newPushService(dispatcher, messageConsumer)
 		pushService.start(queueHandler)
 	}
