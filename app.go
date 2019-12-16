@@ -111,6 +111,12 @@ func main() {
 		Desc:   `Comma-separated list of whitelisted ContentTypes for incoming notifications - i.e. application/vnd.ft-upp-article+json,application/vnd.ft-upp-audio+json`,
 		EnvVar: "CONTENT_TYPE_WHITELIST",
 	})
+	whitelistedMetadataOriginSystemHeaders := app.Strings(cli.StringsOpt{
+		Name:   "whitelistedMetadataOriginSystemHeaders",
+		Value:  []string{"http://cmdb.ft.com/systems/pac", "http://cmdb.ft.com/systems/methode-web-pub", "http://cmdb.ft.com/systems/next-video-editor"},
+		Desc:   "Origin-System-Ids that are supported to be processed from the PostPublicationEvents queue.",
+		EnvVar: "WHITELISTED_METADATA_ORIGIN_SYSTEM_HEADERS",
+	})
 
 	logLevel := app.String(cli.StringOpt{
 		Name:   "logLevel",
@@ -202,7 +208,9 @@ func main() {
 		for _, value := range *contentTypeWhitelist {
 			ctWhitelist.Add(value)
 		}
-		queueHandler := queueConsumer.NewContentQueueHandler(whitelistR, ctWhitelist, mapper, dispatcher)
+		contentHandler := queueConsumer.NewContentQueueHandler(whitelistR, ctWhitelist, mapper, dispatcher)
+		metadataHandler := queueConsumer.NewMetadataQueueHandler(*whitelistedMetadataOriginSystemHeaders, mapper, dispatcher)
+		queueHandler := queueConsumer.NewMessageQueueHandler(contentHandler, metadataHandler)
 		pushService := newPushService(dispatcher, messageConsumer)
 		pushService.start(queueHandler)
 	}

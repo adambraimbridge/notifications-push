@@ -3,8 +3,15 @@ package consumer
 import (
 	"errors"
 	"regexp"
+	"time"
 
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
+)
+
+const (
+	ContentUpdateType    = "http://www.ft.com/thing/ThingChangeType/UPDATE"
+	ContentDeleteType    = "http://www.ft.com/thing/ThingChangeType/DELETE"
+	AnnotationUpdateType = "http://www.ft.com/thing/ThingChangeType/ANNOTATIONS_UPDATE"
 )
 
 // NotificationMapper maps CmsPublicationEvents to Notifications
@@ -29,10 +36,10 @@ func (n NotificationMapper) MapNotification(event PublicationEvent, transactionI
 	var contentType = ""
 
 	if event.HasEmptyPayload() {
-		eventType = "DELETE"
+		eventType = ContentDeleteType
 		contentType = resolveTypeFromMessageHeader(event.ContentTypeHeader)
 	} else {
-		eventType = "UPDATE"
+		eventType = ContentUpdateType
 		notificationPayloadMap, ok := event.Payload.(map[string]interface{})
 		if ok {
 			title = getValueFromPayload("title", notificationPayloadMap)
@@ -42,15 +49,26 @@ func (n NotificationMapper) MapNotification(event PublicationEvent, transactionI
 	}
 
 	return dispatch.Notification{
-		Type:             "http://www.ft.com/thing/ThingChangeType/" + eventType,
+		Type:             eventType,
 		ID:               "http://www.ft.com/thing/" + UUID,
 		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + UUID,
 		PublishReference: transactionID,
 		LastModified:     event.LastModified,
 		Title:            title,
-		Standout:         dispatch.Standout{Scoop: scoop},
+		Standout:         &dispatch.Standout{Scoop: scoop},
 		ContentType:      contentType,
 	}, nil
+}
+
+func (n NotificationMapper) MapMetadataNotification(event ConceptAnnotationsEvent, transactionID string) dispatch.Notification {
+	return dispatch.Notification{
+		Type:             AnnotationUpdateType,
+		ID:               "http://www.ft.com/thing/" + event.ContentID,
+		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + event.ContentID,
+		PublishReference: transactionID,
+		ContentType:      AnnotationContentType,
+		LastModified:     time.Now().Format(time.RFC3339),
+	}
 }
 
 func resolveTypeFromMessageHeader(contentTypeHeader string) string {
