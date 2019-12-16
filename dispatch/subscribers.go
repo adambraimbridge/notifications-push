@@ -8,7 +8,7 @@ import (
 	"time"
 
 	log "github.com/Financial-Times/go-logger"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 // Subscriber represents the interface of a generic subscriber to a push stream
@@ -66,15 +66,24 @@ func (s *standardSubscriber) Since() time.Time {
 }
 
 func (s *standardSubscriber) matchesContentType(n Notification) bool {
-	if strings.ToLower(s.acceptedContentType) == "all" {
+
+	subType := strings.ToLower(s.acceptedContentType)
+	contentType := strings.ToLower(n.ContentType)
+
+	all := strings.ToLower(AllContentType)
+	ann := strings.ToLower(AnnotationsType)
+
+	if subType == all && contentType != ann {
 		return true
 	}
 
-	if strings.Contains(n.Type, "DELETE") && n.ContentType == "" {
+	if n.Type == ContentDeleteType &&
+		contentType == "" &&
+		subType != ann {
 		return true
 	}
 
-	return strings.ToLower(s.acceptedContentType) == strings.ToLower(n.ContentType)
+	return subType == contentType
 }
 
 func (s *standardSubscriber) send(n Notification) error {

@@ -8,12 +8,6 @@ import (
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
-const (
-	ContentUpdateType    = "http://www.ft.com/thing/ThingChangeType/UPDATE"
-	ContentDeleteType    = "http://www.ft.com/thing/ThingChangeType/DELETE"
-	AnnotationUpdateType = "http://www.ft.com/thing/ThingChangeType/ANNOTATIONS_UPDATE"
-)
-
 // NotificationMapper maps CmsPublicationEvents to Notifications
 type NotificationMapper struct {
 	APIBaseURL string
@@ -36,10 +30,10 @@ func (n NotificationMapper) MapNotification(event PublicationEvent, transactionI
 	var contentType = ""
 
 	if event.HasEmptyPayload() {
-		eventType = ContentDeleteType
+		eventType = dispatch.ContentDeleteType
 		contentType = resolveTypeFromMessageHeader(event.ContentTypeHeader)
 	} else {
-		eventType = ContentUpdateType
+		eventType = dispatch.ContentUpdateType
 		notificationPayloadMap, ok := event.Payload.(map[string]interface{})
 		if ok {
 			title = getValueFromPayload("title", notificationPayloadMap)
@@ -62,11 +56,11 @@ func (n NotificationMapper) MapNotification(event PublicationEvent, transactionI
 
 func (n NotificationMapper) MapMetadataNotification(event ConceptAnnotationsEvent, transactionID string) dispatch.Notification {
 	return dispatch.Notification{
-		Type:             AnnotationUpdateType,
+		Type:             dispatch.AnnotationUpdateType,
 		ID:               "http://www.ft.com/thing/" + event.ContentID,
 		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + event.ContentID,
 		PublishReference: transactionID,
-		ContentType:      AnnotationContentType,
+		ContentType:      dispatch.AnnotationsType,
 		LastModified:     time.Now().Format(time.RFC3339),
 	}
 }
@@ -74,11 +68,11 @@ func (n NotificationMapper) MapMetadataNotification(event ConceptAnnotationsEven
 func resolveTypeFromMessageHeader(contentTypeHeader string) string {
 	switch contentTypeHeader {
 	case "application/vnd.ft-upp-article+json":
-		return "Article"
+		return dispatch.ArticleContentType
 	case "application/vnd.ft-upp-content-package+json":
-		return "ContentPackage"
+		return dispatch.ContentPackageType
 	case "application/vnd.ft-upp-audio+json":
-		return "Audio"
+		return dispatch.AudioContentType
 	default:
 		return ""
 	}

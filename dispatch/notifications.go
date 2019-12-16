@@ -1,5 +1,21 @@
 package dispatch
 
+// subscription types
+const (
+	AnnotationsType    = "Annotations"
+	ArticleContentType = "Article"
+	ContentPackageType = "ContentPackage"
+	AudioContentType   = "Audio"
+	AllContentType     = "All"
+)
+
+// notification types
+const (
+	ContentUpdateType    = "http://www.ft.com/thing/ThingChangeType/UPDATE"
+	ContentDeleteType    = "http://www.ft.com/thing/ThingChangeType/DELETE"
+	AnnotationUpdateType = "http://www.ft.com/thing/ThingChangeType/ANNOTATIONS_UPDATE"
+)
+
 // Notification model
 type Notification struct {
 	APIURL           string    `json:"apiUrl"`
