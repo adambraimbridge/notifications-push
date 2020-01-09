@@ -50,7 +50,7 @@ func (n NotificationMapper) MapNotification(event PublicationEvent, transactionI
 		LastModified:     event.LastModified,
 		Title:            title,
 		Standout:         &dispatch.Standout{Scoop: scoop},
-		ContentType:      contentType,
+		SubscriptionType: contentType,
 	}, nil
 }
 
@@ -60,7 +60,7 @@ func (n NotificationMapper) MapMetadataNotification(event ConceptAnnotationsEven
 		ID:               "http://www.ft.com/thing/" + event.ContentID,
 		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + event.ContentID,
 		PublishReference: transactionID,
-		ContentType:      dispatch.AnnotationsType,
+		SubscriptionType: dispatch.AnnotationsType,
 		LastModified:     time.Now().Format(time.RFC3339),
 	}
 }

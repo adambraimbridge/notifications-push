@@ -31,7 +31,7 @@ var n1 = Notification{
 	Type:             "http://www.ft.com/thing/ThingChangeType/UPDATE",
 	PublishReference: "tid_test1",
 	LastModified:     "2016-11-02T10:54:22.234Z",
-	ContentType:      "ContentPackage",
+	SubscriptionType: "ContentPackage",
 }
 
 var n2 = Notification{
@@ -47,7 +47,7 @@ var annNotif = Notification{
 	ID:               "http://www.ft.com/thing/7998974a-1e97-11e6-b286-cddde55ca122",
 	Type:             "http://www.ft.com/thing/ThingChangeType/ANNOTATIONS_UPDATE",
 	PublishReference: "tid_test3",
-	ContentType:      "Annotations",
+	SubscriptionType: "Annotations",
 }
 
 var zeroTime = time.Time{}
@@ -421,8 +421,8 @@ type MockSubscriber struct {
 	mock.Mock
 }
 
-// AcceptedContentType provides a mock function with given fields:
-func (_m *MockSubscriber) AcceptedContentType() string {
+// AcceptedSubType provides a mock function with given fields:
+func (_m *MockSubscriber) AcceptedSubType() string {
 	return "ContentPackage"
 }
 
@@ -431,8 +431,8 @@ func (_m *MockSubscriber) Address() string {
 	return "192.168.1.1"
 }
 
-// matchesContentType provides a mock function with given fields: n
-func (_m *MockSubscriber) matchesContentType(n Notification) bool {
+// matchesSubType provides a mock function with given fields: n
+func (_m *MockSubscriber) matchesSubType(n Notification) bool {
 	return true
 }
 

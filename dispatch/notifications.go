@@ -27,7 +27,7 @@ type Notification struct {
 	NotificationDate string    `json:"notificationDate,omitempty"`
 	Title            string    `json:"title,omitempty"`
 	Standout         *Standout `json:"standout,omitempty"`
-	ContentType      string    `json:"-"`
+	SubscriptionType string    `json:"-"`
 }
 
 // Standout model for a Notification

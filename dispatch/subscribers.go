@@ -15,12 +15,12 @@ import (
 type Subscriber interface {
 	Id() string
 	send(n Notification) error
-	matchesContentType(n Notification) bool
+	matchesSubType(n Notification) bool
 	NotificationChannel() chan string
 	writeOnMsgChannel(string)
 	Address() string
 	Since() time.Time
-	AcceptedContentType() string
+	AcceptedSubType() string
 }
 
 // StandardSubscriber implements a standard subscriber
@@ -29,18 +29,18 @@ type standardSubscriber struct {
 	notificationChannel chan string
 	addr                string
 	sinceTime           time.Time
-	acceptedContentType string
+	acceptedType        string
 }
 
 // NewStandardSubscriber returns a new instance of a standard subscriber
-func NewStandardSubscriber(address string, contentType string) Subscriber {
+func NewStandardSubscriber(address string, subType string) Subscriber {
 	notificationChannel := make(chan string, 16)
 	return &standardSubscriber{
 		id:                  uuid.NewV4().String(),
 		notificationChannel: notificationChannel,
 		addr:                address,
 		sinceTime:           time.Now(),
-		acceptedContentType: contentType,
+		acceptedType:        subType,
 	}
 }
 
@@ -55,9 +55,9 @@ func (s *standardSubscriber) Address() string {
 	return s.addr
 }
 
-// AcceptedContentType returns the accepted content type for which notifications are returned
-func (s *standardSubscriber) AcceptedContentType() string {
-	return s.acceptedContentType
+// AcceptedSubType returns the accepted subscription type for which notifications are returned
+func (s *standardSubscriber) AcceptedSubType() string {
+	return s.acceptedType
 }
 
 // Since returns the time since a subscriber have been registered
@@ -65,25 +65,25 @@ func (s *standardSubscriber) Since() time.Time {
 	return s.sinceTime
 }
 
-func (s *standardSubscriber) matchesContentType(n Notification) bool {
+func (s *standardSubscriber) matchesSubType(n Notification) bool {
 
-	subType := strings.ToLower(s.acceptedContentType)
-	contentType := strings.ToLower(n.ContentType)
+	subType := strings.ToLower(s.acceptedType)
+	notifType := strings.ToLower(n.SubscriptionType)
 
 	all := strings.ToLower(AllContentType)
 	ann := strings.ToLower(AnnotationsType)
 
-	if subType == all && contentType != ann {
+	if subType == all && notifType != ann {
 		return true
 	}
 
 	if n.Type == ContentDeleteType &&
-		contentType == "" &&
+		notifType == "" &&
 		subType != ann {
 		return true
 	}
 
-	return subType == contentType
+	return subType == notifType
 }
 
 func (s *standardSubscriber) send(n Notification) error {
@@ -150,8 +150,8 @@ type monitorSubscriber struct {
 }
 
 // NewMonitorSubscriber returns a new instance of a Monitor subscriber
-func NewMonitorSubscriber(address string, contentType string) Subscriber {
-	return &monitorSubscriber{NewStandardSubscriber(address, contentType)}
+func NewMonitorSubscriber(address string, subType string) Subscriber {
+	return &monitorSubscriber{NewStandardSubscriber(address, subType)}
 }
 
 func (m *monitorSubscriber) send(n Notification) error {

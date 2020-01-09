@@ -67,7 +67,7 @@ func TestMetadata(t *testing.T) {
 					ID:               "http://www.ft.com/thing/fc1d7a28-9506-323f-9558-11beb985e8f7",
 					APIURL:           "test.api.ft.com/content/fc1d7a28-9506-323f-9558-11beb985e8f7",
 					PublishReference: "tid_test",
-					ContentType:      "Annotations",
+					SubscriptionType: "Annotations",
 					LastModified:     time.Now().Format(time.RFC3339),
 				}
 				assert.Equal(t, expectedNotification, notification[0])

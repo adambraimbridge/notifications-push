@@ -59,7 +59,7 @@ func Push(reg dispatch.Registrar, apiGatewayKeyValidationURL string, httpClient 
 
 		bw := bufio.NewWriter(w)
 
-		contentTypeParam, err := resolveSubType(r)
+		subscriptionParam, err := resolveSubType(r)
 		if err != nil {
 			log.WithError(err).Error("Invalid content type")
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -71,9 +71,9 @@ func Push(reg dispatch.Registrar, apiGatewayKeyValidationURL string, httpClient 
 		var s dispatch.Subscriber
 
 		if isMonitor {
-			s = dispatch.NewMonitorSubscriber(getClientAddr(r), contentTypeParam)
+			s = dispatch.NewMonitorSubscriber(getClientAddr(r), subscriptionParam)
 		} else {
-			s = dispatch.NewStandardSubscriber(getClientAddr(r), contentTypeParam)
+			s = dispatch.NewStandardSubscriber(getClientAddr(r), subscriptionParam)
 		}
 
 		reg.Register(s)
