@@ -179,6 +179,7 @@ func main() {
 		mapper := queueConsumer.NotificationMapper{
 			Resource:   *resource,
 			APIBaseURL: *apiBaseURL,
+			Property:   &conceptTimeReader{},
 		}
 
 		whitelistR, err := regexp.Compile(*contentURIWhitelist)
@@ -238,4 +239,12 @@ func server(listen string, resource string, dispatcher dispatch.Dispatcher, hist
 
 	err := http.ListenAndServe(listen, nil)
 	log.Fatal(err)
+}
+
+type conceptTimeReader struct{}
+
+func (c *conceptTimeReader) LastModified(event queueConsumer.ConceptAnnotationsEvent) string {
+	// Currently PostConceptAnnotations event is missing LastModified property for annotations.
+	// So we use current time as a substitute.
+	return time.Now().Format(time.RFC3339)
 }

@@ -3,15 +3,19 @@ package consumer
 import (
 	"errors"
 	"regexp"
-	"time"
 
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
+
+type PropertyReader interface {
+	LastModified(event ConceptAnnotationsEvent) string
+}
 
 // NotificationMapper maps CmsPublicationEvents to Notifications
 type NotificationMapper struct {
 	APIBaseURL string
 	Resource   string
+	Property   PropertyReader
 }
 
 // UUIDRegexp enables to check if a string matches a UUID
@@ -61,7 +65,7 @@ func (n NotificationMapper) MapMetadataNotification(event ConceptAnnotationsEven
 		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + event.ContentID,
 		PublishReference: transactionID,
 		SubscriptionType: dispatch.AnnotationsType,
-		LastModified:     time.Now().Format(time.RFC3339),
+		LastModified:     n.Property.LastModified(event),
 	}
 }
 

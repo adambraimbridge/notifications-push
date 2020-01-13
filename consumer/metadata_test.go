@@ -2,7 +2,6 @@ package consumer
 
 import (
 	"testing"
-	"time"
 
 	logger "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
@@ -59,6 +58,9 @@ func TestMetadata(t *testing.T) {
 			mapper: NotificationMapper{
 				APIBaseURL: "test.api.ft.com",
 				Resource:   "content",
+				Property: &propertyMock{
+					Time: "2016-11-02T10:54:22.234Z",
+				},
 			},
 			sendFunc: func(notification []dispatch.Notification) {
 				assert.Equal(t, 1, len(notification))
@@ -68,7 +70,7 @@ func TestMetadata(t *testing.T) {
 					APIURL:           "test.api.ft.com/content/fc1d7a28-9506-323f-9558-11beb985e8f7",
 					PublishReference: "tid_test",
 					SubscriptionType: "Annotations",
-					LastModified:     time.Now().Format(time.RFC3339),
+					LastModified:     "2016-11-02T10:54:22.234Z",
 				}
 				assert.Equal(t, expectedNotification, notification[0])
 			},
@@ -105,4 +107,12 @@ func TestMetadata(t *testing.T) {
 		})
 	}
 
+}
+
+type propertyMock struct {
+	Time string
+}
+
+func (m *propertyMock) LastModified(event ConceptAnnotationsEvent) string {
+	return m.Time
 }
