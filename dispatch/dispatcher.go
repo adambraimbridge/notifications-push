@@ -77,7 +77,7 @@ func (d *dispatcher) forwardToSubscribers(notification Notification) {
 	var sent, failed, skipped int
 	defer func() {
 		if len(d.subscribers) == 0 || sent > 0 || len(d.subscribers) == skipped {
-			log.WithMonitoringEvent("NotificationsPush", notification.PublishReference, notification.ContentType).
+			log.WithMonitoringEvent("NotificationsPush", notification.PublishReference, notification.SubscriptionType).
 				WithFields(map[string]interface{}{"resource": notification.APIURL, "sent": sent, "failed": failed, "skipped": skipped}).
 				Info("Processed subscribers.")
 		} else {
@@ -93,7 +93,7 @@ func (d *dispatcher) forwardToSubscribers(notification Notification) {
 			WithField("subscriberAddress", sub.Address()).
 			WithField("subscriberSince", sub.Since().Format(time.RFC3339))
 
-		if !sub.matchesContentType(notification) {
+		if !sub.matchesSubType(notification) {
 			skipped++
 			entry.Info("Skipping subscriber.")
 			continue
@@ -148,7 +148,7 @@ func (d *dispatcher) Register(subscriber Subscriber) {
 	log.WithField("subscriberId", subscriber.Id()).
 		WithField("subscriber", subscriber.Address()).
 		WithField("subscriberType", reflect.TypeOf(subscriber).Elem().Name()).
-		WithField("acceptedContentType", subscriber.AcceptedContentType()).
+		WithField("acceptedContentType", subscriber.AcceptedSubType()).
 		Info("Registered new subscriber")
 
 	subscriber.writeOnMsgChannel(HeartbeatMsg)
