@@ -65,14 +65,7 @@ HTTP endpoints
 ----------
 ```curl -i --header "x-api-key: «api_key»" https://api.ft.com/content/notifications-push```
 
-The following subscription types could be also specified for which the client would like to receive notifications by setting a "type" parameter on the request:
-
-* `Article`
-* `ContentPackage`
-* `Audio`
-* `All`- all content changes including CPH, but not annotation changes.
-* `Annotations` - notifications for manual annotation changes
-
+The following content types could be also specified for which the client would like to receive notifications by setting a "type" parameter on the request: `Article`, `ContentPackage`, `Audio` and `All` to include everything (also CPHs).
 If not specified, by default `Article` is used. If an invalid type is requested an HTTP 400 Bad Request is returned.
 
 E.g.
@@ -80,13 +73,14 @@ E.g.
 
 ### Filter DELETE messages by type
 When a content has been deleted (`http://www.ft.com/thing/ThingChangeType/DELETE`), the kafka payload is empty and we cannot extract the content type from the message. In this case, there are 2 possible behaviours:
+- if the `Content-Type` header is empty or equal to `application-json`, then we cannot resolve the content type of the message. Therefore, the notification will be sent to all the subscribers despite their accepted content type.
 
-* if the `Content-Type` header is empty or equal to `application-json`, then we cannot resolve the content type of the message. Therefore, the notification will be sent to all the subscribers despite their accepted content type.
-* if the `Content-Type` header has been specified and it is not equal to `application-json`, then we can resolve the content type based on this header.
+- if the `Content-Type` header has been specified and it is not equal to `application-json`, then we can resolve the content type based on this header.
 
-e.g. a DELETE message with header `Content-Type: application/vnd.ft-upp-audio+json` will be considered an Audio content. Therefore, the notification will be sent to those subscribers who accept `type=Audio` or `type=All`, but not `type=Annotations`.
+e.g. a DELETE message with header `Content-Type: application/vnd.ft-upp-audio+json` will be considered an Audio content. Therefore, the notification will be sent to those subscribers who accept `type=Audio` or `type=All`.
 
-### Content Push stream
+
+### Push stream
 
 By opening a HTTP connection with a GET method to the `/{resource}/notifications-push` endpoint, subscribers can consume the notifications push stream for the resource specified in the configuration (content or lists).
 The stream will look like the following one.
@@ -116,26 +110,6 @@ data: [{"apiUrl":"http://api.ft.com/content/648bda7b-1187-3496-b48e-57ecb14d5b0a
 ```
 
 The empty `[]` lines are heartbeats. Notifications-push will send a heartbeat every 30 seconds to keep the connection active.
-
-### Annotations Push Stream
-
-```
-curl -i --header "x-api-key: «api_key»" https://api.ft.com/content/notifications-push?type=Annotations
-```
-
-By opening a HTTP connection with a GET method to the `/content/notifications-push?type=Annotations` endpoint, subscribers can consume the notifications push stream for annotation changes. The stream will look similar to the content one.
-
-#### Message format
-
-```
-{
-  "apiUrl":"http://api.ft.com/content/4de8b414-c5aa-11e9-a8e9-296ca66511c9",
-  "id":"http://www.ft.com/thing/4de8b414-c5aa-11e9-a8e9-296ca66511c9",
-  "type":"http://www.ft.com/thing/ThingChangeType/ANNOTATIONS_UPDATE"
-}
-```
-
-### Monitoring
 
 The notifications-push stream endpoint allows a `monitor` query parameter. By setting the `monitor` flag as `true`, the push stream returns `publishReference` and `lastModified` attributes in the notification message, which is necessary information for UPP internal monitors such as [PAM](https://github.com/Financial-Times/publish-availability-monitor).
 

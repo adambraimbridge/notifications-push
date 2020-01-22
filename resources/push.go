@@ -13,18 +13,12 @@ import (
 )
 
 const (
-	apiKeyHeaderField       = "X-Api-Key"
-	apiKeyQueryParam        = "apiKey"
-	defaultSubscriptionType = dispatch.ArticleContentType
+	apiKeyHeaderField  = "X-Api-Key"
+	apiKeyQueryParam   = "apiKey"
+	defaultContentType = "Article"
 )
 
-var supportedSubscriptionTypes = []string{
-	dispatch.AnnotationsType,
-	dispatch.ArticleContentType,
-	dispatch.ContentPackageType,
-	dispatch.AudioContentType,
-	dispatch.AllContentType,
-}
+var supportedContentTypes = []string{"Article", "ContentPackage", "Audio", "All"}
 
 //ApiKey is provided either as a request param or as a header.
 func getApiKey(r *http.Request) string {
@@ -59,7 +53,7 @@ func Push(reg dispatch.Registrar, apiGatewayKeyValidationURL string, httpClient 
 
 		bw := bufio.NewWriter(w)
 
-		subscriptionParam, err := resolveSubType(r)
+		contentTypeParam, err := resolveContentType(r)
 		if err != nil {
 			log.WithError(err).Error("Invalid content type")
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -71,9 +65,9 @@ func Push(reg dispatch.Registrar, apiGatewayKeyValidationURL string, httpClient 
 		var s dispatch.Subscriber
 
 		if isMonitor {
-			s = dispatch.NewMonitorSubscriber(getClientAddr(r), subscriptionParam)
+			s = dispatch.NewMonitorSubscriber(getClientAddr(r), contentTypeParam)
 		} else {
-			s = dispatch.NewStandardSubscriber(getClientAddr(r), subscriptionParam)
+			s = dispatch.NewStandardSubscriber(getClientAddr(r), contentTypeParam)
 		}
 
 		reg.Register(s)
@@ -139,15 +133,15 @@ func getClientAddr(r *http.Request) string {
 	return r.RemoteAddr
 }
 
-func resolveSubType(r *http.Request) (string, error) {
-	subType := r.URL.Query().Get("type")
-	if subType == "" {
-		return defaultSubscriptionType, nil
+func resolveContentType(r *http.Request) (string, error) {
+	contentType := r.URL.Query().Get("type")
+	if contentType == "" {
+		return defaultContentType, nil
 	}
-	for _, t := range supportedSubscriptionTypes {
-		if strings.ToLower(subType) == strings.ToLower(t) {
-			return subType, nil
+	for _, t := range supportedContentTypes {
+		if strings.ToLower(contentType) == strings.ToLower(t) {
+			return contentType, nil
 		}
 	}
-	return "", fmt.Errorf("The specified type (%s) is unsupported", subType)
+	return "", fmt.Errorf("The specified type (%s) is unsupported", contentType)
 }

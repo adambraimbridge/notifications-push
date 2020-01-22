@@ -3,7 +3,7 @@ package consumer
 import (
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,7 +28,7 @@ func TestMapToUpdateNotification(t *testing.T) {
 	assert.Equal(t, "http://www.ft.com/thing/ThingChangeType/UPDATE", n.Type, "It is an UPDATE notification")
 	assert.Equal(t, "This is a title", n.Title, "Title should pe mapped correctly")
 	assert.Equal(t, true, n.Standout.Scoop, "Scoop field should be mapped correctly")
-	assert.Equal(t, "Article", n.SubscriptionType, "SubscriptionType field should be mapped correctly")
+	assert.Equal(t, "Article", n.ContentType, "ContentType field should be mapped correctly")
 }
 
 func TestMapToUpdateNotification_ForContentWithVersion3UUID(t *testing.T) {
@@ -86,7 +86,7 @@ func TestMapToDeleteNotification_ContentTypeHeader(t *testing.T) {
 	n, err := mapper.MapNotification(event, "tid_test1")
 
 	assert.Equal(t, "http://www.ft.com/thing/ThingChangeType/DELETE", n.Type, "It should be a DELETE notification")
-	assert.Equal(t, "Article", n.SubscriptionType, "SubscriptionType should be mapped based on the message header")
+	assert.Equal(t, "Article", n.ContentType, "ContentType should be mapped based on the message header")
 	assert.Nil(t, err, "The mapping should not return an error")
 }
 
@@ -127,5 +127,5 @@ func TestNotificationMappingFieldsNotExtractedFromPayload(t *testing.T) {
 	assert.Equal(t, "http://www.ft.com/thing/ThingChangeType/UPDATE", n.Type, "It is an UPDATE notification")
 	assert.Empty(t, n.Title, "Title should be empty when it cannot be extracted from payload")
 	assert.Equal(t, false, n.Standout.Scoop, "Scoop field should be set to false when it cannot be extracted from payload")
-	assert.Equal(t, "", n.SubscriptionType, "SubscriptionType field should be empty when it cannot be extracted from payload")
+	assert.Equal(t, "", n.ContentType, "ContentType field should be empty when it cannot be extracted from payload")
 }

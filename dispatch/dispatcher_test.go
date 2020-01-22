@@ -18,7 +18,6 @@ import (
 const (
 	contentTypeFilter = "All"
 	typeArticle       = "Article"
-	annotationSubType = "Annotations"
 )
 
 var delay = 2 * time.Second
@@ -31,7 +30,7 @@ var n1 = Notification{
 	Type:             "http://www.ft.com/thing/ThingChangeType/UPDATE",
 	PublishReference: "tid_test1",
 	LastModified:     "2016-11-02T10:54:22.234Z",
-	SubscriptionType: "ContentPackage",
+	ContentType:      "ContentPackage",
 }
 
 var n2 = Notification{
@@ -40,14 +39,6 @@ var n2 = Notification{
 	Type:             "http://www.ft.com/thing/ThingChangeType/DELETE",
 	PublishReference: "tid_test2",
 	LastModified:     "2016-11-02T10:55:24.244Z",
-}
-
-var annNotif = Notification{
-	APIURL:           "http://api.ft.com/content/7998974a-1e97-11e6-b286-cddde55ca122",
-	ID:               "http://www.ft.com/thing/7998974a-1e97-11e6-b286-cddde55ca122",
-	Type:             "http://www.ft.com/thing/ThingChangeType/ANNOTATIONS_UPDATE",
-	PublishReference: "tid_test3",
-	SubscriptionType: "Annotations",
 }
 
 var zeroTime = time.Time{}
@@ -100,17 +91,15 @@ func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 
 	m := NewMonitorSubscriber("192.168.1.2", contentTypeFilter)
 	s := NewStandardSubscriber("192.168.1.3", typeArticle)
-	annSub := NewStandardSubscriber("192.168.1.4", annotationSubType)
 
 	go d.Start()
 	defer d.Stop()
 
 	d.Register(s)
 	d.Register(m)
-	d.Register(annSub)
 
 	notBefore := time.Now()
-	d.Send(n1, n2, annNotif)
+	d.Send(n1, n2)
 
 	actualhbMessage := <-s.NotificationChannel()
 	assert.Equal(t, HeartbeatMsg, actualhbMessage, "First message is a heartbeat")
@@ -120,12 +109,6 @@ func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 
 	anotherHbMsg := <-s.NotificationChannel()
 	assert.Equal(t, HeartbeatMsg, anotherHbMsg, "Third message is a heartbeat")
-
-	hbMessage := <-annSub.NotificationChannel()
-	assert.Equal(t, HeartbeatMsg, hbMessage, "First message is a heartbeat")
-
-	msg := <-annSub.NotificationChannel()
-	verifyNotificationResponse(t, annNotif, notBefore, time.Now(), msg)
 
 	actualhbMessage = <-m.NotificationChannel()
 	assert.Equal(t, HeartbeatMsg, actualhbMessage, "First message is a heartbeat")
@@ -140,22 +123,18 @@ func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 		tid := e.Data["transaction_id"]
 		switch e.Message {
 		case "Skipping subscriber.":
-			assert.Contains(t, [...]string{n1.APIURL, n2.APIURL, annNotif.APIURL}, e.Data["resource"], "skipped resource")
-			assert.Contains(t, [...]string{s.Address(), m.Address(), annSub.Address()}, e.Data["subscriberAddress"], "skipped subscriber address")
+			assert.Equal(t, n1.APIURL, e.Data["resource"], "skipped resource")
+			assert.Equal(t, s.Address(), e.Data["subscriberAddress"], "skipped subscriber address")
 		case "Processed subscribers.":
 			switch tid {
 			case "tid_test1":
 				assert.Equal(t, 1, e.Data["sent"], "sent (%s)", tid)
 				assert.Equal(t, 0, e.Data["failed"], "failed (%s)", tid)
-				assert.Equal(t, 2, e.Data["skipped"], "skipped (%s)", tid)
+				assert.Equal(t, 1, e.Data["skipped"], "skipped (%s)", tid)
 			case "tid_test2":
 				assert.Equal(t, 2, e.Data["sent"], "sent (%s)", tid)
 				assert.Equal(t, 0, e.Data["failed"], "failed (%s)", tid)
-				assert.Equal(t, 1, e.Data["skipped"], "skipped (%s)", tid)
-			case "tid_test3":
-				assert.Equal(t, 1, e.Data["sent"], "sent (%s)", tid)
-				assert.Equal(t, 0, e.Data["failed"], "failed (%s)", tid)
-				assert.Equal(t, 2, e.Data["skipped"], "skipped (%s)", tid)
+				assert.Equal(t, 0, e.Data["skipped"], "skipped (%s)", tid)
 			default:
 				assert.Fail(t, "unexpected transaction_id", "%s (%s)", e.Message, tid)
 			}
@@ -334,14 +313,13 @@ func TestDispatchedNotificationsInHistory(t *testing.T) {
 
 	notBefore := time.Now()
 
-	d.Send(n1, n2, annNotif)
+	d.Send(n1, n2)
 	time.Sleep(time.Duration(delay.Seconds()+1) * time.Second)
 
 	notAfter := time.Now()
-	verifyNotification(t, annNotif, notBefore, notAfter, h.Notifications()[2])
 	verifyNotification(t, n1, notBefore, notAfter, h.Notifications()[1])
 	verifyNotification(t, n2, notBefore, notAfter, h.Notifications()[0])
-	assert.Len(t, h.Notifications(), 3, "History contains 3 notifications")
+	assert.Len(t, h.Notifications(), 2, "History contains 2 notifications")
 
 	for i := 0; i < historySize; i++ {
 		d.Send(n2)
@@ -421,8 +399,8 @@ type MockSubscriber struct {
 	mock.Mock
 }
 
-// AcceptedSubType provides a mock function with given fields:
-func (_m *MockSubscriber) AcceptedSubType() string {
+// AcceptedContentType provides a mock function with given fields:
+func (_m *MockSubscriber) AcceptedContentType() string {
 	return "ContentPackage"
 }
 
@@ -431,8 +409,8 @@ func (_m *MockSubscriber) Address() string {
 	return "192.168.1.1"
 }
 
-// matchesSubType provides a mock function with given fields: n
-func (_m *MockSubscriber) matchesSubType(n Notification) bool {
+// matchesContentType provides a mock function with given fields: n
+func (_m *MockSubscriber) matchesContentType(n Notification) bool {
 	return true
 }
 
