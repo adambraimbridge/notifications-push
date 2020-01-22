@@ -31,31 +31,10 @@ func (msg NotificationQueueMessage) TransactionID() string {
 	return msg.Headers["X-Request-Id"]
 }
 
-func (msg NotificationQueueMessage) OriginID() string {
-	return msg.Headers["Origin-System-Id"]
-}
-
 // ToPublicationEvent converts the message to a CmsPublicationEvent
 func (msg NotificationQueueMessage) ToPublicationEvent() (event PublicationEvent, err error) {
 	err = json.Unmarshal([]byte(msg.Body), &event)
 	return event, err
-}
-
-// ToAnnotationEvent converts message to ConceptAnnotations Event
-func (msg NotificationQueueMessage) ToAnnotationEvent() (ConceptAnnotationsEvent, error) {
-	var event ConceptAnnotationsEvent
-	err := json.Unmarshal([]byte(msg.Body), &event)
-	return event, err
-}
-
-type ConceptAnnotationsEvent struct {
-	ContentID   string `json:"uuid"`
-	Annotations []struct {
-		Thing struct {
-			ID        string `json:"id"`
-			Predicate string `json:"predicate"`
-		} `json:"thing"`
-	} `json:"annotations"`
 }
 
 // PublicationEvent is the data structure that represents a publication event consumed from Kafka

@@ -6,6 +6,7 @@ import (
 	stdlog "log"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"regexp"
@@ -70,17 +71,11 @@ func main() {
 		Desc:   "The API Gateway healthcheck endpoint",
 		EnvVar: "API_HEALTHCHECK_ENDPOINT",
 	})
-	contentTopic := app.String(cli.StringOpt{
+	topic := app.String(cli.StringOpt{
 		Name:   "topic",
 		Value:  "",
 		Desc:   "Kafka topic to read from.",
 		EnvVar: "TOPIC",
-	})
-	metadataTopic := app.String(cli.StringOpt{
-		Name:   "metadata_topic",
-		Value:  "",
-		Desc:   "Kafka topic for annotation changes.",
-		EnvVar: "METADATA_TOPIC",
 	})
 	port := app.Int(cli.IntOpt{
 		Name:   "port",
@@ -111,12 +106,6 @@ func main() {
 		Desc:   `Comma-separated list of whitelisted ContentTypes for incoming notifications - i.e. application/vnd.ft-upp-article+json,application/vnd.ft-upp-audio+json`,
 		EnvVar: "CONTENT_TYPE_WHITELIST",
 	})
-	whitelistedMetadataOriginSystemHeaders := app.Strings(cli.StringsOpt{
-		Name:   "whitelistedMetadataOriginSystemHeaders",
-		Value:  []string{"http://cmdb.ft.com/systems/pac", "http://cmdb.ft.com/systems/methode-web-pub", "http://cmdb.ft.com/systems/next-video-editor"},
-		Desc:   "Origin-System-Ids that are supported to be processed from the PostPublicationEvents queue.",
-		EnvVar: "WHITELISTED_METADATA_ORIGIN_SYSTEM_HEADERS",
-	})
 
 	logLevel := app.String(cli.StringOpt{
 		Name:   "logLevel",
@@ -127,10 +116,9 @@ func main() {
 
 	log.InitLogger(serviceName, *logLevel)
 	log.WithFields(map[string]interface{}{
-		"CONTENT_TOPIC":  *contentTopic,
-		"METADATA_TOPIC": *metadataTopic,
-		"GROUP_ID":       *consumerGroupID,
-		"KAFKA_ADDRS":    *consumerAddrs,
+		"KAFKA_TOPIC": *topic,
+		"GROUP_ID":    *consumerGroupID,
+		"KAFKA_ADDRS": *consumerAddrs,
 	}).Infof("[Startup] notifications-push is starting ")
 
 	app.Action = func() {
@@ -149,12 +137,9 @@ func main() {
 		messageConsumer, err := kafka.NewConsumer(kafka.Config{
 			ZookeeperConnectionString: *consumerAddrs,
 			ConsumerGroup:             *consumerGroupID,
-			Topics: []string{
-				*contentTopic,
-				*metadataTopic,
-			},
-			ConsumerGroupConfig: consumerConfig,
-			Err:                 errCh,
+			Topics:                    []string{*topic},
+			ConsumerGroupConfig:       consumerConfig,
+			Err:                       errCh,
 		})
 		if err != nil {
 			log.WithError(err).Fatal("Cannot create Kafka client")
@@ -179,7 +164,6 @@ func main() {
 		mapper := queueConsumer.NotificationMapper{
 			Resource:   *resource,
 			APIBaseURL: *apiBaseURL,
-			Property:   &conceptTimeReader{},
 		}
 
 		whitelistR, err := regexp.Compile(*contentURIWhitelist)
@@ -209,9 +193,7 @@ func main() {
 		for _, value := range *contentTypeWhitelist {
 			ctWhitelist.Add(value)
 		}
-		contentHandler := queueConsumer.NewContentQueueHandler(whitelistR, ctWhitelist, mapper, dispatcher)
-		metadataHandler := queueConsumer.NewMetadataQueueHandler(*whitelistedMetadataOriginSystemHeaders, mapper, dispatcher)
-		queueHandler := queueConsumer.NewMessageQueueHandler(contentHandler, metadataHandler)
+		queueHandler := queueConsumer.NewMessageQueueHandler(whitelistR, ctWhitelist, mapper, dispatcher)
 		pushService := newPushService(dispatcher, messageConsumer)
 		pushService.start(queueHandler)
 	}
@@ -239,12 +221,4 @@ func server(listen string, resource string, dispatcher dispatch.Dispatcher, hist
 
 	err := http.ListenAndServe(listen, nil)
 	log.Fatal(err)
-}
-
-type conceptTimeReader struct{}
-
-func (c *conceptTimeReader) LastModified(event queueConsumer.ConceptAnnotationsEvent) string {
-	// Currently PostConceptAnnotations event is missing LastModified property for annotations.
-	// So we use current time as a substitute.
-	return time.Now().Format(time.RFC3339)
 }

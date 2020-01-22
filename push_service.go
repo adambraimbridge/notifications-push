@@ -8,6 +8,7 @@ import (
 
 	log "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
+
 	cons "github.com/Financial-Times/notifications-push/v4/consumer"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
@@ -37,7 +38,7 @@ func (p *pushService) start(queueHandler cons.MessageQueueHandler) {
 		wg.Done()
 	}()
 
-	ch := make(chan os.Signal, 1)
+	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 	<-ch
 	log.Info("Termination signal received. Quitting message consumer and notification dispatcher function.")
