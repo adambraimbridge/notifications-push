@@ -2,12 +2,14 @@ package resources
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	log "github.com/Financial-Times/go-logger"
+	logger "github.com/Financial-Times/go-logger/v2"
 
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
@@ -32,6 +34,8 @@ func getApiKey(r *http.Request) string {
 
 // Push handler for push subscribers
 func Push(reg dispatch.Registrar, apiGatewayKeyValidationURL string, httpClient *http.Client) func(w http.ResponseWriter, r *http.Request) {
+	l := logger.NewUnstructuredLogger()
+	v := NewKeyValidator(apiGatewayKeyValidationURL, httpClient, l)
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-type", "text/event-stream; charset=UTF-8")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -40,8 +44,14 @@ func Push(reg dispatch.Registrar, apiGatewayKeyValidationURL string, httpClient 
 		w.Header().Set("Expires", "0")
 
 		apiKey := getApiKey(r)
-		if isValid, errMsg, errStatusCode := isValidApiKey(apiKey, apiGatewayKeyValidationURL, httpClient); !isValid {
-			http.Error(w, errMsg, errStatusCode)
+		err := v.Validate(r.Context(), apiKey)
+		if err != nil {
+			keyErr := &KeyErr{}
+			if !errors.As(err, &keyErr) {
+				http.Error(w, "Cannot stream.", http.StatusInternalServerError)
+				return
+			}
+			http.Error(w, keyErr.Msg, keyErr.Status)
 			return
 		}
 
