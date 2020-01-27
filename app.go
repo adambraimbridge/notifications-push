@@ -14,6 +14,7 @@ import (
 	"time"
 
 	log "github.com/Financial-Times/go-logger"
+	logger "github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
@@ -203,12 +204,23 @@ func main() {
 	}
 }
 
+func newHandler(client *http.Client, dispatcher dispatch.Dispatcher, gatewayURL string, heartbeat time.Duration, log *logger.UPPLogger) *resources.SubHandler {
+	return resources.NewSubHandler(dispatcher,
+		resources.NewKeyValidator(gatewayURL,
+			client,
+			log),
+		heartbeat,
+		log)
+}
+
 func server(listen string, resource string, dispatcher dispatch.Dispatcher, history dispatch.History, consumer kafka.Consumer, apiGatewayKeyValidationURL string, httpClient *http.Client, hc *resources.HealthCheck) {
 	notificationsPushPath := "/" + resource + "/notifications-push"
 
 	r := mux.NewRouter()
+	l := logger.NewUnstructuredLogger()
+	handler := newHandler(httpClient, dispatcher, apiGatewayKeyValidationURL, heartbeatPeriod, l)
 
-	r.HandleFunc(notificationsPushPath, resources.Push(dispatcher, apiGatewayKeyValidationURL, httpClient)).Methods("GET")
+	r.HandleFunc(notificationsPushPath, handler.HandleSubscription).Methods("GET")
 	r.HandleFunc("/__history", resources.History(history)).Methods("GET")
 	r.HandleFunc("/__stats", resources.Stats(dispatcher)).Methods("GET")
 

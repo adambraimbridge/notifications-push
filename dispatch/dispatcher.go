@@ -18,7 +18,6 @@ type Dispatcher interface {
 	Start()
 	Stop()
 	Send(notification ...Notification)
-	Subscribers() []Subscriber
 	Registrar
 }
 
@@ -27,6 +26,10 @@ type Dispatcher interface {
 type Registrar interface {
 	Register(subscriber Subscriber)
 	Close(subscriber Subscriber)
+
+	Subscribe(address string, subType string, monitoring bool) Subscriber
+	Unsubscribe(subscriber Subscriber)
+	Subscribers() []Subscriber
 }
 
 // NewDispatcher creates and returns a new dispatcher
@@ -174,4 +177,19 @@ func (d *dispatcher) Close(subscriber Subscriber) {
 		WithField("subscriber", subscriber.Address()).
 		WithField("subscriberType", reflect.TypeOf(subscriber).Elem().Name()).
 		Info("Unregistered subscriber")
+}
+
+func (d *dispatcher) Subscribe(address string, subType string, monitoring bool) Subscriber {
+	var s Subscriber
+	if monitoring {
+		s = NewMonitorSubscriber(address, subType)
+	} else {
+		s = NewStandardSubscriber(address, subType)
+	}
+	d.Register(s)
+	return s
+}
+
+func (d *dispatcher) Unsubscribe(subscriber Subscriber) {
+	d.Close(subscriber)
 }

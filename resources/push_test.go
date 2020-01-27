@@ -2,318 +2,363 @@ package resources
 
 import (
 	"bufio"
+	"bytes"
+	"context"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-
+	logger "github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 	"github.com/Financial-Times/notifications-push/v4/test/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-var start func(sub dispatch.Subscriber)
+func TestSubscription(t *testing.T) {
 
-func TestPushStandardSubscriber(t *testing.T) {
-	d := new(MockDispatcher)
+	l := logger.NewUPPLogger("TEST", "PANIC")
 
-	d.On("Register", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-	d.On("Close", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
+	heartbeat := time.Second * 1
+	subAddress := "some-test-host"
+	apiKey := "some-test-api-key"
 
-	w := NewStreamResponseRecorder()
-	req, err := http.NewRequest("GET", "/content/notifications-push", nil)
-	if err != nil {
-		t.Fatal(err)
+	tests := map[string]struct {
+		Request        string
+		IsMonitor      bool
+		ExpectedType   string
+		ExpectedBody   string
+		ExpectedStatus int
+		ExpectStream   bool
+	}{
+		"Test Push Default Subscriber": {
+
+			ExpectedType:   defaultSubscriptionType,
+			Request:        "/content/notifications-push",
+			ExpectedBody:   "data: []\n\n",
+			ExpectedStatus: http.StatusOK,
+			ExpectStream:   true,
+		},
+		"Test Push Standard Subscriber": {
+			ExpectedType:   "Audio",
+			Request:        "/content/notifications-push?type=Audio",
+			ExpectedBody:   "data: []\n\n",
+			ExpectedStatus: http.StatusOK,
+			ExpectStream:   true,
+		},
+		"Test Push Monitor Subscriber": {
+			ExpectedType:   defaultSubscriptionType,
+			Request:        "/content/notifications-push?monitor=true",
+			IsMonitor:      true,
+			ExpectedBody:   "data: []\n\n",
+			ExpectedStatus: http.StatusOK,
+			ExpectStream:   true,
+		},
+		"Test Push Invalid Subscription": {
+			Request:        "/content/notifications-push?type=Invalid",
+			ExpectedBody:   "The specified type (Invalid) is unsupported\n",
+			ExpectedStatus: http.StatusBadRequest,
+		},
 	}
 
-	req.Header.Set("X-Forwarded-For", "some-host, some-other-host-that-isnt-used")
-	req.Header.Set(apiKeyHeaderField, "some-api-key")
+	v := &mocks.KeyValidator{}
+	d := &mocks.MockDispatcher{}
+	handler := NewSubHandler(d, v, heartbeat, l)
 
-	start = func(sub dispatch.Subscriber) {
-		sub.NotificationChannel() <- "hi"
-		time.Sleep(10 * time.Millisecond)
-		w.closer <- true
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
 
-		assert.True(t, time.Now().After(sub.Since()))
-		assert.Equal(t, "some-host", sub.Address())
+			v.On("Validate", mock.Anything, apiKey).Return(nil)
+
+			if test.ExpectStream {
+				sub := dispatch.NewStandardSubscriber(subAddress, test.ExpectedType)
+				d.On("Subscribe", subAddress, test.ExpectedType, test.IsMonitor).Run(func(args mock.Arguments) {
+					go func() {
+						<-time.After(time.Millisecond * 10)
+						cancel()
+					}()
+				}).Return(sub)
+				d.On("Unsubscribe", mock.Anything).Return()
+			} else {
+				defer cancel()
+			}
+
+			resp := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, test.Request, nil)
+			req = req.WithContext(ctx)
+			req.Header.Set(APIKeyHeaderField, apiKey)
+			req.Header.Set(ClientAdrKey, subAddress)
+			handler.HandleSubscription(resp, req)
+
+			if test.ExpectStream {
+				assertHeaders(t, resp.Header())
+			}
+
+			reader := bufio.NewReader(resp.Body)
+			body, _ := reader.ReadString(byte(0))
+
+			assert.Equal(t, test.ExpectedBody, body)
+
+			assert.Equal(t, test.ExpectedStatus, resp.Code)
+			d.AssertExpectations(t)
+			v.AssertExpectations(t)
+
+		})
 	}
+}
 
-	httpClient := mocks.MockHTTPClientWithResponseCode(http.StatusOK)
-	Push(d, "http://dummy.ft.com", httpClient)(w, req)
+func TestPassKeyAsParameter(t *testing.T) {
 
-	assert.Equal(t, "text/event-stream; charset=UTF-8", w.Header().Get("Content-Type"), "Should be SSE")
-	assert.Equal(t, "no-cache, no-store, must-revalidate", w.Header().Get("Cache-Control"))
-	assert.Equal(t, "keep-alive", w.Header().Get("Connection"))
-	assert.Equal(t, "no-cache", w.Header().Get("Pragma"))
-	assert.Equal(t, "0", w.Header().Get("Expires"))
+	l := logger.NewUPPLogger("TEST", "PANIC")
 
-	reader := bufio.NewReader(w.Body)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	keyAPI := "some-test-api-key"
+	heartbeat := time.Second * 1
+
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/content/notifications-push", nil)
+	req = req.WithContext(ctx)
+	q := req.URL.Query()
+	q.Add(apiKeyQueryParam, keyAPI)
+	req.URL.RawQuery = q.Encode()
+
+	v := &mocks.KeyValidator{}
+	v.On("Validate", mock.Anything, keyAPI).Return(nil)
+
+	sub := dispatch.NewStandardSubscriber(req.RemoteAddr, defaultSubscriptionType)
+	d := &mocks.MockDispatcher{}
+	d.On("Subscribe", req.RemoteAddr, defaultSubscriptionType, false).Run(func(args mock.Arguments) {
+		go func() {
+			<-time.After(time.Millisecond * 10)
+			cancel()
+		}()
+	}).Return(sub)
+	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
+
+	handler := NewSubHandler(d, v, heartbeat, l)
+
+	handler.HandleSubscription(resp, req)
+
+	assertHeaders(t, resp.Header())
+
+	reader := bufio.NewReader(resp.Body)
 	body, _ := reader.ReadString(byte(0)) // read to EOF
 
-	assert.Equal(t, "data: hi\n\n", body)
+	assert.Equal(t, "data: []\n\n", body)
 
-	assert.Equal(t, http.StatusOK, w.Code, "Should be OK")
+	assert.Equal(t, http.StatusOK, resp.Code, "Should be OK")
 	d.AssertExpectations(t)
+	v.AssertExpectations(t)
 }
 
-func TestPushMonitorSubscriber(t *testing.T) {
-	d := new(MockDispatcher)
+func TestInvalidKey(t *testing.T) {
 
-	d.On("Register", mock.AnythingOfType("*dispatch.monitorSubscriber")).Return()
-	d.On("Close", mock.AnythingOfType("*dispatch.monitorSubscriber")).Return()
+	l := logger.NewUPPLogger("TEST", "PANIC")
 
-	w := NewStreamResponseRecorder()
-	req, err := http.NewRequest("GET", "/content/notifications-push?monitor=true", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	keyAPI := "some-test-api-key"
+	heartbeat := time.Second * 1
 
-	req.Header.Set("X-Forwarded-For", "some-host, some-other-host-that-isnt-used")
-	req.Header.Set(apiKeyHeaderField, "some-api-key")
+	v := &mocks.KeyValidator{}
+	v.On("Validate", mock.Anything, keyAPI).Return(NewKeyErr("failed key", http.StatusForbidden, ""))
 
-	start = func(sub dispatch.Subscriber) {
-		sub.NotificationChannel() <- "hi"
-		time.Sleep(10 * time.Millisecond)
-		w.closer <- true
+	d := &mocks.MockDispatcher{}
 
-		assert.True(t, time.Now().After(sub.Since()))
-		assert.Equal(t, "some-host", sub.Address())
-	}
+	handler := NewSubHandler(d, v, heartbeat, l)
 
-	httpClient := mocks.MockHTTPClientWithResponseCode(http.StatusOK)
-	Push(d, "http://dummy.ft.com", httpClient)(w, req)
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/content/notifications-push", nil)
+	req.Header.Set(APIKeyHeaderField, keyAPI)
 
-	assert.Equal(t, "text/event-stream; charset=UTF-8", w.Header().Get("Content-Type"), "Should be SSE")
-	assert.Equal(t, "no-cache, no-store, must-revalidate", w.Header().Get("Cache-Control"))
-	assert.Equal(t, "keep-alive", w.Header().Get("Connection"))
-	assert.Equal(t, "no-cache", w.Header().Get("Pragma"))
-	assert.Equal(t, "0", w.Header().Get("Expires"))
+	handler.HandleSubscription(resp, req)
 
-	reader := bufio.NewReader(w.Body)
-	body, _ := reader.ReadString(byte(0)) // read to EOF
+	body, _ := ioutil.ReadAll(resp.Body)
+	assert.Equal(t, http.StatusForbidden, resp.Code, "Expect error for invalid key")
+	assert.Equal(t, "failed key\n", string(body))
 
-	assert.Equal(t, "data: hi\n\n", body)
+	v.AssertExpectations(t)
+}
 
-	assert.Equal(t, http.StatusOK, w.Code, "Should be OK")
+func TestHeartbeat(t *testing.T) {
+
+	l := logger.NewUPPLogger("TEST", "PANIC")
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	subAddress := "some-test-host"
+	keyAPI := "some-test-api-key"
+	heartbeat := time.Second * 1
+	heartbeatMsg := "data: []\n\n"
+
+	v := &mocks.KeyValidator{}
+	v.On("Validate", mock.Anything, keyAPI).Return(nil)
+
+	sub := dispatch.NewStandardSubscriber(subAddress, defaultSubscriptionType)
+	d := &mocks.MockDispatcher{}
+	d.On("Subscribe", subAddress, defaultSubscriptionType, false).Return(sub)
+	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
+
+	handler := NewSubHandler(d, v, heartbeat, l)
+
+	req, _ := http.NewRequest(http.MethodGet, "/content/notifications-push", nil)
+	req = req.WithContext(ctx)
+	req.Header.Set(APIKeyHeaderField, keyAPI)
+	req.Header.Set(ClientAdrKey, subAddress)
+
+	pipe := newPipedResponse()
+	defer pipe.Close()
+
+	go func() {
+		handler.HandleSubscription(pipe, req)
+	}()
+
+	start := time.Now()
+	msg, _ := pipe.readString()
+	assert.Equal(t, heartbeatMsg, msg, "Read incoming heartbeat")
+	delay := time.Since(start)
+	assert.True(t, delay+(time.Millisecond*100) < heartbeat, "The fist heartbeat should not wait for hearbeat delay")
+
+	start = time.Now()
+	msg, _ = pipe.readString()
+	delay = time.Since(start)
+
+	assert.InEpsilon(t, heartbeat.Nanoseconds(), delay.Nanoseconds(), 0.05, "The second heartbeat delay should be send within 0.05 relative error")
+	assert.Equal(t, heartbeatMsg, msg, "The second heartbeat message is correct")
+
+	start = start.Add(heartbeat)
+	msg, _ = pipe.readString()
+	delay = time.Since(start)
+
+	assert.InEpsilon(t, heartbeat.Nanoseconds(), delay.Nanoseconds(), 0.05, "The third heartbeat delay should be send within 0.05 relative error")
+	assert.Equal(t, heartbeatMsg, msg, "The third heartbeat message is correct")
+
+	cancel()
+	// wait for handler to close the connection
+	<-time.After(time.Millisecond * 5)
+
+	assert.Equal(t, http.StatusOK, pipe.Code, "Should be OK")
 	d.AssertExpectations(t)
+	v.AssertExpectations(t)
 }
 
-func TestPushFailed(t *testing.T) {
-	d := new(MockDispatcher)
-	w := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/content/notifications-push", nil)
+func TestPushNotificationDelay(t *testing.T) {
+
+	l := logger.NewUPPLogger("TEST", "PANIC")
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	subAddress := "some-test-host"
+	keyAPI := "some-test-api-key"
+	heartbeat := time.Second * 1
+	notificationDelay := time.Millisecond * 100
+	heartbeatMsg := "data: []\n\n"
+
+	v := &mocks.KeyValidator{}
+	v.On("Validate", mock.Anything, keyAPI).Return(nil)
+
+	sub := dispatch.NewStandardSubscriber(subAddress, defaultSubscriptionType)
+	d := &mocks.MockDispatcher{}
+	d.On("Subscribe", subAddress, defaultSubscriptionType, false).Run(func(args mock.Arguments) {
+		go func() {
+			<-time.After(notificationDelay)
+			sub.NotificationChannel() <- "hi"
+		}()
+	}).Return(sub)
+	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
+
+	handler := NewSubHandler(d, v, heartbeat, l)
+
+	req, _ := http.NewRequest(http.MethodGet, "/content/notifications-push", nil)
+	req = req.WithContext(ctx)
+	req.Header.Set(APIKeyHeaderField, keyAPI)
+	req.Header.Set(ClientAdrKey, subAddress)
+
+	pipe := newPipedResponse()
+	defer pipe.Close()
+
+	go func() {
+		handler.HandleSubscription(pipe, req)
+	}()
+
+	start := time.Now()
+	msg, _ := pipe.readString()
+	assert.Equal(t, heartbeatMsg, msg, "Read incoming heartbeat")
+	delay := time.Since(start)
+	assert.True(t, delay+(time.Millisecond*100) < heartbeat, "The fist heartbeat should not wait for hearbeat delay")
+
+	start = time.Now()
+	msg, _ = pipe.readString()
+	delay = time.Since(start)
+
+	assert.InEpsilon(t, notificationDelay.Nanoseconds(), delay.Nanoseconds(), 0.08, "The notification is send in the correct time frame")
+	assert.Equal(t, "data: hi\n\n", msg, "Should get the notification")
+
+	start = start.Add(notificationDelay)
+	msg, _ = pipe.readString()
+	delay = time.Since(start)
+
+	assert.InEpsilon(t, heartbeat.Nanoseconds(), delay.Nanoseconds(), 0.05, "The third heartbeat delay should be send within 0.05 relative error")
+	assert.Equal(t, heartbeatMsg, msg, "The third heartbeat message is correct")
+
+	cancel()
+	// wait for handler to close the connection
+	<-time.After(time.Millisecond * 5)
+
+	assert.Equal(t, http.StatusOK, pipe.Code, "Should be OK")
+	d.AssertExpectations(t)
+	v.AssertExpectations(t)
+}
+
+func assertHeaders(t *testing.T, h http.Header) bool {
+	pass := true
+	pass = pass && assert.Equal(t, "text/event-stream; charset=UTF-8", h.Get("Content-Type"), "Should be SSE")
+	pass = pass && assert.Equal(t, "no-cache, no-store, must-revalidate", h.Get("Cache-Control"))
+	pass = pass && assert.Equal(t, "keep-alive", h.Get("Connection"))
+	pass = pass && assert.Equal(t, "no-cache", h.Get("Pragma"))
+	pass = pass && assert.Equal(t, "0", h.Get("Expires"))
+	return pass
+}
+
+type pipedResponse struct {
+	httptest.ResponseRecorder
+	r *io.PipeReader
+	w *io.PipeWriter
+}
+
+func newPipedResponse() *pipedResponse {
+	r, w := io.Pipe()
+	return &pipedResponse{
+		ResponseRecorder: httptest.ResponseRecorder{
+			HeaderMap: make(http.Header),
+			Body:      new(bytes.Buffer),
+			Code:      200,
+		},
+		r: r,
+		w: w,
+	}
+}
+
+func (p *pipedResponse) Write(data []byte) (int, error) {
+	return p.w.Write(data)
+}
+func (p *pipedResponse) Read(data []byte) (int, error) {
+	return p.r.Read(data)
+}
+
+func (p *pipedResponse) Close() error {
+	return p.w.Close()
+}
+
+func (p *pipedResponse) readString() (string, error) {
+	const bufSize = 4096
+	buf := make([]byte, bufSize)
+	idx, err := p.r.Read(buf)
 	if err != nil {
-		t.Fatal(err)
+		return "", err
 	}
-	req.Header.Set(apiKeyHeaderField, "some-api-key")
-
-	httpClient := mocks.MockHTTPClientWithResponseCode(http.StatusOK)
-	Push(d, "http://dummy.ft.com", httpClient)(w, req)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestPushInvalidType(t *testing.T) {
-	d := new(MockDispatcher)
-	d.On("Register", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-	d.On("Close", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-
-	w := NewStreamResponseRecorder()
-	req, err := http.NewRequest("GET", "/content/notifications-push?type=InvalidType", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req.Header.Set("X-Forwarded-For", "some-host, some-other-host-that-isnt-used")
-	req.Header.Set(apiKeyHeaderField, "some-api-key")
-
-	start = func(sub dispatch.Subscriber) {
-		sub.NotificationChannel() <- "hi"
-		time.Sleep(10 * time.Millisecond)
-		w.closer <- true
-
-		assert.True(t, time.Now().After(sub.Since()))
-		assert.Equal(t, "some-host", sub.Address())
-	}
-
-	httpClient := mocks.MockHTTPClientWithResponseCode(http.StatusOK)
-	Push(d, "http://dummy.ft.com", httpClient)(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	reader := bufio.NewReader(w.Body)
-	body, _ := reader.ReadString(byte(0)) // read to EOF
-
-	assert.True(t, strings.Contains(body, "The specified type (InvalidType) is unsupported"))
-}
-
-func TestAPIGatewayDown(t *testing.T) {
-	d := new(MockDispatcher)
-
-	d.On("Register", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-	d.On("Close", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-
-	w := NewStreamResponseRecorder()
-	req, err := http.NewRequest("GET", "/content/notifications-push", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req.Header.Set("X-Forwarded-For", "some-host, some-other-host-that-isnt-used")
-	req.Header.Set(apiKeyHeaderField, "some-api-key")
-
-	start = func(sub dispatch.Subscriber) {
-		sub.NotificationChannel() <- "hi"
-		time.Sleep(10 * time.Millisecond)
-		w.closer <- true
-
-		assert.True(t, time.Now().After(sub.Since()))
-		assert.Equal(t, "some-host", sub.Address())
-	}
-
-	httpClient := mocks.MockHTTPClientWithResponseCode(http.StatusInternalServerError)
-	Push(d, "http://dummy.ft.com", httpClient)(w, req)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestInvalidApiKey(t *testing.T) {
-	d := new(MockDispatcher)
-
-	d.On("Register", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-	d.On("Close", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-
-	w := NewStreamResponseRecorder()
-	req, err := http.NewRequest("GET", "/content/notifications-push", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req.Header.Set("X-Forwarded-For", "some-host, some-other-host-that-isnt-used")
-	req.Header.Set(apiKeyHeaderField, "some-wrong-api-key")
-
-	start = func(sub dispatch.Subscriber) {
-		sub.NotificationChannel() <- "hi"
-		time.Sleep(10 * time.Millisecond)
-		w.closer <- true
-
-		assert.True(t, time.Now().After(sub.Since()))
-		assert.Equal(t, "some-host", sub.Address())
-	}
-
-	httpClient := mocks.MockHTTPClientWithResponseCode(http.StatusUnauthorized)
-	Push(d, "http://dummy.ft.com", httpClient)(w, req)
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestEmptyApiKey(t *testing.T) {
-	d := new(MockDispatcher)
-
-	d.On("Register", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-	d.On("Close", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-
-	w := NewStreamResponseRecorder()
-	req, err := http.NewRequest("GET", "/content/notifications-push", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req.Header.Set("X-Forwarded-For", "some-host, some-other-host-that-isnt-used")
-	req.Header.Set(apiKeyHeaderField, "")
-
-	start = func(sub dispatch.Subscriber) {
-		sub.NotificationChannel() <- "hi"
-		time.Sleep(10 * time.Millisecond)
-		w.closer <- true
-
-		assert.True(t, time.Now().After(sub.Since()))
-		assert.Equal(t, "some-host", sub.Address())
-	}
-
-	httpClient := mocks.DefaultMockHTTPClient()
-	Push(d, "http://dummy.ft.com", httpClient)(w, req)
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestInvalidUrlForValidatingApiKey(t *testing.T) {
-	d := new(MockDispatcher)
-
-	d.On("Register", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-	d.On("Close", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-
-	w := NewStreamResponseRecorder()
-	req, err := http.NewRequest("GET", "/content/notifications-push", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req.Header.Set("X-Forwarded-For", "some-host, some-other-host-that-isnt-used")
-	req.Header.Set(apiKeyHeaderField, "some-api-key")
-
-	start = func(sub dispatch.Subscriber) {
-		sub.NotificationChannel() <- "hi"
-		time.Sleep(10 * time.Millisecond)
-		w.closer <- true
-
-		assert.True(t, time.Now().After(sub.Since()))
-		assert.Equal(t, "some-host", sub.Address())
-	}
-
-	httpClient := mocks.DefaultMockHTTPClient()
-	Push(d, ":invalidurl", httpClient)(w, req)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestClientErrorByRequestingValidatingApiKey(t *testing.T) {
-	d := new(MockDispatcher)
-
-	d.On("Register", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-	d.On("Close", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-
-	w := NewStreamResponseRecorder()
-	req, err := http.NewRequest("GET", "/content/notifications-push", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req.Header.Set("X-Forwarded-For", "some-host, some-other-host-that-isnt-used")
-	req.Header.Set(apiKeyHeaderField, "some-api-key")
-
-	start = func(sub dispatch.Subscriber) {
-		sub.NotificationChannel() <- "hi"
-		time.Sleep(10 * time.Millisecond)
-		w.closer <- true
-
-		assert.True(t, time.Now().After(sub.Since()))
-		assert.Equal(t, "some-host", sub.Address())
-	}
-
-	httpClient := mocks.ErroringMockHTTPClient()
-	Push(d, "http://dummy.ft.com", httpClient)(w, req)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-type MockDispatcher struct {
-	mocks.MockDispatcher
-}
-
-func (m *MockDispatcher) Register(sub dispatch.Subscriber) {
-	m.Called(sub)
-	go start(sub)
-}
-
-func NewStreamResponseRecorder() *StreamResponseRecorder {
-	w := httptest.NewRecorder()
-	closer := make(chan bool)
-	return &StreamResponseRecorder{w, closer}
-}
-
-type StreamResponseRecorder struct {
-	*httptest.ResponseRecorder
-	closer chan bool
-}
-
-func (r *StreamResponseRecorder) CloseNotify() <-chan bool {
-	return r.closer
+	return string(buf[:idx]), nil
 }
