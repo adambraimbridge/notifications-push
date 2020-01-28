@@ -15,7 +15,7 @@ type subscriptionStats struct {
 }
 
 // Stats returns subscriber stats
-func Stats(dispatcher dispatch.Dispatcher) func(w http.ResponseWriter, r *http.Request) {
+func Stats(dispatcher dispatch.Registrar) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		subscribers := dispatcher.Subscribers()
 

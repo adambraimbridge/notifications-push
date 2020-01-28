@@ -6,7 +6,6 @@ import (
 	stdlog "log"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"regexp"
@@ -114,19 +113,22 @@ func main() {
 		EnvVar: "LOG_LEVEL",
 	})
 
-	log.InitLogger(serviceName, *logLevel)
-	log.WithFields(map[string]interface{}{
-		"KAFKA_TOPIC": *topic,
-		"GROUP_ID":    *consumerGroupID,
-		"KAFKA_ADDRS": *consumerAddrs,
-	}).Infof("[Startup] notifications-push is starting ")
-
 	app.Action = func() {
+
+		log.InitLogger(serviceName, *logLevel)
+
+		logV2 := logger.NewUPPLogger(serviceName, *logLevel)
+		logV2.WithFields(map[string]interface{}{
+			"KAFKA_TOPIC": *topic,
+			"GROUP_ID":    *consumerGroupID,
+			"KAFKA_ADDRS": *consumerAddrs,
+		}).Infof("[Startup] notifications-push is starting ")
+
 		errCh := make(chan error, 2)
 		defer close(errCh)
 		var fatalErrs = []error{kazoo.ErrPartitionNotClaimed, zk.ErrNoServer}
 		fatalErrHandler := func(err error, serviceName string) {
-			log.WithError(err).Fatalf("Exiting %s due to fatal error", serviceName)
+			logV2.WithError(err).Fatalf("Exiting %s due to fatal error", serviceName)
 		}
 
 		supervisor := newServiceSupervisor(serviceName, errCh, fatalErrs, fatalErrHandler)
@@ -142,7 +144,7 @@ func main() {
 			Err:                       errCh,
 		})
 		if err != nil {
-			log.WithError(err).Fatal("Cannot create Kafka client")
+			logV2.WithError(err).Fatal("Cannot create Kafka client")
 		}
 
 		httpClient := &http.Client{
@@ -168,17 +170,17 @@ func main() {
 
 		whitelistR, err := regexp.Compile(*contentURIWhitelist)
 		if err != nil {
-			log.WithError(err).Fatal("Whitelist regex MUST compile!")
+			logV2.WithError(err).Fatal("Whitelist regex MUST compile!")
 		}
 
 		apiGatewayHealthcheckURL, err := url.Parse(*apiBaseURL)
 		if err != nil {
-			log.WithError(err).Fatal("cannot parse api_base_url")
+			logV2.WithError(err).Fatal("cannot parse api_base_url")
 		}
 
 		r, err := url.Parse(*apiGatewayHealthcheckEndpoint)
 		if err != nil {
-			log.WithError(err).Fatal("cannot parse api_healthcheck_endpoint")
+			logV2.WithError(err).Fatal("cannot parse api_healthcheck_endpoint")
 		}
 
 		apiGatewayHealthcheckURL = apiGatewayHealthcheckURL.ResolveReference(r)
@@ -187,7 +189,10 @@ func main() {
 
 		apiGatewayKeyValidationURL := fmt.Sprintf("%s/%s", *apiBaseURL, *apiKeyValidationEndpoint)
 
-		go server(":"+strconv.Itoa(*port), *resource, dispatcher, history, messageConsumer, apiGatewayKeyValidationURL, httpClient, hc)
+		keyValidator := resources.NewKeyValidator(apiGatewayKeyValidationURL, httpClient, logV2)
+		subHandler := resources.NewSubHandler(dispatcher, keyValidator, heartbeatPeriod, *resource, logV2)
+
+		go server(":"+strconv.Itoa(*port), subHandler, dispatcher, history, hc)
 
 		ctWhitelist := queueConsumer.NewSet()
 		for _, value := range *contentTypeWhitelist {
@@ -203,30 +208,23 @@ func main() {
 	}
 }
 
-func newHandler(client *http.Client, dispatcher dispatch.Dispatcher, gatewayURL string, heartbeat time.Duration, log *logger.UPPLogger) *resources.SubHandler {
-	return resources.NewSubHandler(dispatcher,
-		resources.NewKeyValidator(gatewayURL,
-			client,
-			log),
-		heartbeat,
-		log)
-}
-
-func server(listen string, resource string, dispatcher dispatch.Dispatcher, history dispatch.History, consumer kafka.Consumer, apiGatewayKeyValidationURL string, httpClient *http.Client, hc *resources.HealthCheck) {
-	notificationsPushPath := "/" + resource + "/notifications-push"
-
+func server(
+	addr string,
+	s *resources.SubHandler,
+	dispatcher dispatch.Registrar,
+	history dispatch.History,
+	hc *resources.HealthCheck,
+) {
 	r := mux.NewRouter()
-	l := logger.NewUnstructuredLogger()
-	handler := newHandler(httpClient, dispatcher, apiGatewayKeyValidationURL, heartbeatPeriod, l)
 
-	r.HandleFunc(notificationsPushPath, handler.HandleSubscription).Methods("GET")
-	r.HandleFunc("/__history", resources.History(history)).Methods("GET")
-	r.HandleFunc("/__stats", resources.Stats(dispatcher)).Methods("GET")
-
+	s.RegisterHandlers(r)
 	hc.RegisterHandlers(r)
 
-	http.Handle("/", r)
+	r.HandleFunc("/__stats", resources.Stats(dispatcher)).Methods("GET")
+	r.HandleFunc("/__history", resources.History(history)).Methods("GET")
 
-	err := http.ListenAndServe(listen, nil)
-	log.Fatal(err)
+	err := http.ListenAndServe(addr, r)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
