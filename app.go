@@ -160,7 +160,7 @@ func main() {
 		}
 
 		history := dispatch.NewHistory(*historySize)
-		dispatcher := dispatch.NewDispatcher(time.Duration(*delay)*time.Second, heartbeatPeriod, history)
+		dispatcher := dispatch.NewDispatcher(time.Duration(*delay)*time.Second, history)
 
 		mapper := queueConsumer.NotificationMapper{
 			Resource:   *resource,
