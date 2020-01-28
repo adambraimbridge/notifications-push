@@ -19,7 +19,6 @@ import (
 	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 	"github.com/Financial-Times/notifications-push/v4/resources"
-	"github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
 	"github.com/samuel/go-zookeeper/zk"
@@ -224,10 +223,7 @@ func server(listen string, resource string, dispatcher dispatch.Dispatcher, hist
 	r.HandleFunc("/__history", resources.History(history)).Methods("GET")
 	r.HandleFunc("/__stats", resources.Stats(dispatcher)).Methods("GET")
 
-	r.HandleFunc("/__health", hc.Health())
-	r.HandleFunc(httphandlers.GTGPath, httphandlers.NewGoodToGoHandler(hc.GTG))
-	r.HandleFunc(httphandlers.BuildInfoPath, httphandlers.BuildInfoHandler)
-	r.HandleFunc(httphandlers.PingPath, httphandlers.PingHandler)
+	hc.RegisterHandlers(r)
 
 	http.Handle("/", r)
 

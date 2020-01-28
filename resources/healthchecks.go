@@ -1,13 +1,14 @@
 package resources
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
-	"errors"
-
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
+	"github.com/Financial-Times/service-status-go/httphandlers"
+	"github.com/gorilla/mux"
 )
 
 const panicGuideURL = "https://runbooks.in.ft.com/upp-notifications-push"
@@ -32,6 +33,13 @@ func NewHealthCheck(kafkaConsumer KafkaConsumer, apiGatewayGTGAddress string, ht
 		ApiGatewayGTGAddress: apiGatewayGTGAddress,
 		HttpClient:           httpClient,
 	}
+}
+
+func (h *HealthCheck) RegisterHandlers(r *mux.Router) {
+	r.HandleFunc("/__health", h.Health())
+	r.HandleFunc(httphandlers.GTGPath, httphandlers.NewGoodToGoHandler(h.GTG))
+	r.HandleFunc(httphandlers.BuildInfoPath, httphandlers.BuildInfoHandler)
+	r.HandleFunc(httphandlers.PingPath, httphandlers.PingHandler)
 }
 
 func (h *HealthCheck) Health() func(w http.ResponseWriter, r *http.Request) {

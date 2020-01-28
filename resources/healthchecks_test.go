@@ -2,14 +2,14 @@ package resources
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/gorilla/mux"
 )
 
@@ -37,14 +37,15 @@ func (m *KafkaConsumerMock) ConnectivityCheck() error {
 
 func TestHealthcheck(t *testing.T) {
 
-	tests := []struct {
-		name              string
+	tests := map[string]struct {
+		url               string
 		httpClientMock    *HttpClientMock
 		kafkaConsumerMock *KafkaConsumerMock
-		expectedOk        bool
+		expectedStatus    int
+		expectedBody      string
 	}{
-		{
-			name: "Success - both ok",
+		"Success - both ok": {
+			url: "/__health",
 			httpClientMock: &HttpClientMock{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 200, nil
@@ -55,10 +56,11 @@ func TestHealthcheck(t *testing.T) {
 					return nil
 				},
 			},
-			expectedOk: true,
+			expectedStatus: 200,
+			expectedBody:   `"ok":true}`,
 		},
-		{
-			name: "Fail because of kafka",
+		"Fail because of kafka": {
+			url: "/__health",
 			httpClientMock: &HttpClientMock{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 200, nil
@@ -69,10 +71,11 @@ func TestHealthcheck(t *testing.T) {
 					return errors.New("Sample error")
 				},
 			},
-			expectedOk: false,
+			expectedStatus: 200,
+			expectedBody:   `"ok":false,"severity":1}`,
 		},
-		{
-			name: "Fail because of ApiGateway does not return 200 OK",
+		"Fail because of ApiGateway does not return 200 OK": {
+			url: "/__health",
 			httpClientMock: &HttpClientMock{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 403, nil
@@ -83,40 +86,108 @@ func TestHealthcheck(t *testing.T) {
 					return nil
 				},
 			},
-			expectedOk: false,
+			expectedStatus: 200,
+			expectedBody:   `"ok":false,"severity":1}`,
+		},
+		"gtg endpoint success": {
+			url: "/__gtg",
+			httpClientMock: &HttpClientMock{
+				GetStatusCodeF: func(url string) (int, error) {
+					return 200, nil
+				},
+			},
+			kafkaConsumerMock: &KafkaConsumerMock{
+				ConnectivityCheckF: func() error {
+					return nil
+				},
+			},
+			expectedStatus: 200,
+			expectedBody:   "OK",
+		},
+		"gtg endpoint kafka failure": {
+			url: "/__gtg",
+			httpClientMock: &HttpClientMock{
+				GetStatusCodeF: func(url string) (int, error) {
+					return 200, nil
+				},
+			},
+			kafkaConsumerMock: &KafkaConsumerMock{
+				ConnectivityCheckF: func() error {
+					return errors.New("sample error")
+				},
+			},
+			expectedStatus: 503,
+			expectedBody:   "Error connecting to kafka queue",
+		},
+		"gtg endpoint ApiGateway failure": {
+			url: "/__gtg",
+			httpClientMock: &HttpClientMock{
+				GetStatusCodeF: func(url string) (int, error) {
+					return 503, errors.New("gateway failed")
+				},
+			},
+			kafkaConsumerMock: &KafkaConsumerMock{
+				ConnectivityCheckF: func() error {
+					return nil
+				},
+			},
+			expectedStatus: 503,
+			expectedBody:   "gateway failed",
+		},
+		"responds on build-info": {
+			url: "/__build-info",
+			httpClientMock: &HttpClientMock{
+				GetStatusCodeF: func(url string) (int, error) {
+					return 200, nil
+				},
+			},
+			kafkaConsumerMock: &KafkaConsumerMock{
+				ConnectivityCheckF: func() error {
+					return nil
+				},
+			},
+			expectedStatus: 200,
+			expectedBody:   `{"version":`,
+		},
+		"responds on ping": {
+			url: "/__ping",
+			httpClientMock: &HttpClientMock{
+				GetStatusCodeF: func(url string) (int, error) {
+					return 200, nil
+				},
+			},
+			kafkaConsumerMock: &KafkaConsumerMock{
+				ConnectivityCheckF: func() error {
+					return nil
+				},
+			},
+			expectedStatus: 200,
+			expectedBody:   "pong",
 		},
 	}
 
-	for _, test := range tests {
-		fmt.Printf("Runnning test %s \n", test.name)
+	for name, test := range tests {
+		fmt.Printf("Running test %s \n", name)
 
 		hc := NewHealthCheck(test.kafkaConsumerMock, "randomAddress", test.httpClientMock)
 
-		req, err := http.NewRequest("GET", "/__health", nil)
+		req, err := http.NewRequest("GET", test.url, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		rr := httptest.NewRecorder()
 		servicesRouter := mux.NewRouter()
-		servicesRouter.HandleFunc("/__health", hc.Health()).Methods("GET")
+		hc.RegisterHandlers(servicesRouter)
 
 		servicesRouter.ServeHTTP(rr, req)
 
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(rr.Body)
-		response := buf.String()
+		body := buf.String()
 
-		var healthResult fthealth.HealthResult
-		err = json.Unmarshal([]byte(response), &healthResult)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if healthResult.Ok != test.expectedOk {
-			t.Fatalf("Incorrect test result; expectedOk was %v, got %v", test.expectedOk, healthResult.Ok)
-		}
-
+		assert.Equal(t, test.expectedStatus, rr.Code, name+" failed")
+		assert.Contains(t, body, test.expectedBody, name+" failed")
 	}
 
 }
