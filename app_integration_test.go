@@ -231,5 +231,5 @@ func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, r
 		Resource:   resource,
 		APIBaseURL: apiURL,
 	}
-	return consumer.NewMessageQueueHandler(reg, set, mapper, d)
+	return consumer.NewContentQueueHandler(reg, set, mapper, d)
 }

@@ -20,10 +20,16 @@ const (
 	apiKeyHeaderField       = "X-Api-Key"
 	apiKeyQueryParam        = "apiKey"
 	ClientAdrKey            = "X-Forwarded-For"
-	defaultSubscriptionType = "Article"
+	defaultSubscriptionType = dispatch.ArticleContentType
 )
 
-var supportedContentTypes = []string{"Article", "ContentPackage", "Audio", "All"}
+var supportedSubscriptionTypes = []string{
+	dispatch.AnnotationsType,
+	dispatch.ArticleContentType,
+	dispatch.ContentPackageType,
+	dispatch.AudioContentType,
+	dispatch.AllContentType,
+}
 
 type keyValidator interface {
 	Validate(ctx context.Context, key string) error
@@ -159,16 +165,16 @@ func getClientAddr(r *http.Request) string {
 }
 
 func resolveSubType(r *http.Request) (string, error) {
-	contentType := r.URL.Query().Get("type")
-	if contentType == "" {
+	subType := r.URL.Query().Get("type")
+	if subType == "" {
 		return defaultSubscriptionType, nil
 	}
-	for _, t := range supportedContentTypes {
-		if strings.ToLower(contentType) == strings.ToLower(t) {
-			return contentType, nil
+	for _, t := range supportedSubscriptionTypes {
+		if strings.ToLower(subType) == strings.ToLower(t) {
+			return subType, nil
 		}
 	}
-	return "", fmt.Errorf("The specified type (%s) is unsupported", contentType)
+	return "", fmt.Errorf("The specified type (%s) is unsupported", subType)
 }
 
 //ApiKey is provided either as a request param or as a header.
