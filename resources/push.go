@@ -35,22 +35,28 @@ type keyValidator interface {
 	Validate(ctx context.Context, key string) error
 }
 
+//
+type notifier interface {
+	Subscribe(address string, subType string, monitoring bool) dispatch.Subscriber
+	Unsubscribe(subscriber dispatch.Subscriber)
+}
+
 // SubHandler manages subscription requests
 type SubHandler struct {
-	dispatcher      dispatch.Registrar
+	notif           notifier
 	validator       keyValidator
 	heartbeatPeriod time.Duration
 	resource        string
 	log             *logger.UPPLogger
 }
 
-func NewSubHandler(dispatcher dispatch.Registrar,
+func NewSubHandler(n notifier,
 	validator keyValidator,
 	heartbeatPeriod time.Duration,
 	resource string,
 	log *logger.UPPLogger) *SubHandler {
 	return &SubHandler{
-		dispatcher:      dispatcher,
+		notif:           n,
 		validator:       validator,
 		heartbeatPeriod: heartbeatPeriod,
 		resource:        resource,
@@ -91,8 +97,8 @@ func (h *SubHandler) HandleSubscription(w http.ResponseWriter, r *http.Request) 
 	monitorParam := r.URL.Query().Get("monitor")
 	isMonitor, _ := strconv.ParseBool(monitorParam)
 
-	s := h.dispatcher.Subscribe(getClientAddr(r), subscriptionParam, isMonitor)
-	defer h.dispatcher.Unsubscribe(s)
+	s := h.notif.Subscribe(getClientAddr(r), subscriptionParam, isMonitor)
+	defer h.notif.Unsubscribe(s)
 
 	h.listenForNotifications(r.Context(), s, w)
 }

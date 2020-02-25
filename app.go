@@ -230,7 +230,7 @@ func main() {
 func server(
 	addr string,
 	s *resources.SubHandler,
-	dispatcher dispatch.Registrar,
+	dispatcher dispatch.Dispatcher,
 	history dispatch.History,
 	hc *resources.HealthCheck,
 ) {

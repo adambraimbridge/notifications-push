@@ -14,10 +14,14 @@ type subscriptionStats struct {
 	Subscribers     []dispatch.Subscriber `json:"subscribers"`
 }
 
+type clientsProvider interface {
+	Subscribers() []dispatch.Subscriber
+}
+
 // Stats returns subscriber stats
-func Stats(dispatcher dispatch.Registrar) func(w http.ResponseWriter, r *http.Request) {
+func Stats(provider clientsProvider) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		subscribers := dispatcher.Subscribers()
+		subscribers := provider.Subscribers()
 
 		stats := subscriptionStats{
 			NrOfSubscribers: len(subscribers),

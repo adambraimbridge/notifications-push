@@ -17,12 +17,7 @@ type Dispatcher interface {
 	Start()
 	Stop()
 	Send(notification ...Notification)
-	Registrar
-}
 
-// Registrar (aka Registrator :smirk:) is the interface for a component that
-// manages subscriber registration
-type Registrar interface {
 	Subscribe(address string, subType string, monitoring bool) Subscriber
 	Unsubscribe(subscriber Subscriber)
 	Subscribers() []Subscriber
