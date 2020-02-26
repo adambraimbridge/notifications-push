@@ -51,14 +51,12 @@ func (d *Dispatcher) Stop() {
 	d.stopChan <- true
 }
 
-func (d *Dispatcher) Send(notifications ...Notification) {
-	log.WithField("batchSize", len(notifications)).Infof("Received notifications batch. Waiting configured delay (%v).", d.delay)
+func (d *Dispatcher) Send(n Notification) {
+	log.WithTransactionID(n.PublishReference).Infof("Received notification. Waiting configured delay (%v).", d.delay)
 	go func() {
-		d.delayForCache()
-		for _, n := range notifications {
-			n.NotificationDate = time.Now().Format(RFC3339Millis)
-			d.inbound <- n
-		}
+		time.Sleep(d.delay)
+		n.NotificationDate = time.Now().Format(RFC3339Millis)
+		d.inbound <- n
 	}()
 }
 
@@ -135,10 +133,6 @@ func (d *Dispatcher) forwardToSubscribers(notification Notification) {
 	}
 
 	d.history.Push(notification)
-}
-
-func (d *Dispatcher) delayForCache() {
-	time.Sleep(d.delay)
 }
 
 func (d *Dispatcher) addSubscriber(subscriber Subscriber) {

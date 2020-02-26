@@ -63,7 +63,10 @@ func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 	defer d.Stop()
 
 	notBefore := time.Now()
-	d.Send(n1, n2)
+	d.Send(n1)
+	// sleep for ensuring that notifications come in the order they are send.
+	<-time.After(time.Millisecond * 20)
+	d.Send(n2)
 
 	actualN1StdMsg := <-s.NotificationChannel()
 	verifyNotificationResponse(t, n1, zeroTime, zeroTime, actualN1StdMsg)
@@ -93,7 +96,12 @@ func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 	defer d.Stop()
 
 	notBefore := time.Now()
-	d.Send(n1, n2, annNotif)
+	d.Send(n1)
+	// sleep for ensuring that notifications come in the order they are send.
+	<-time.After(time.Millisecond * 20)
+	d.Send(n2)
+	<-time.After(time.Millisecond * 20)
+	d.Send(annNotif)
 
 	actualN2StdMsg := <-s.NotificationChannel()
 	verifyNotificationResponse(t, n2, zeroTime, zeroTime, actualN2StdMsg)
@@ -194,7 +202,9 @@ func TestDispatchedNotificationsInHistory(t *testing.T) {
 
 	notBefore := time.Now()
 
-	d.Send(n1, n2, annNotif)
+	d.Send(n1)
+	d.Send(n2)
+	d.Send(annNotif)
 	time.Sleep(time.Duration(delay.Seconds()+1) * time.Second)
 
 	notAfter := time.Now()

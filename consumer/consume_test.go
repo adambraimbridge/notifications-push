@@ -74,7 +74,7 @@ func TestSparkCCTWhitelist(t *testing.T) {
 	}
 
 	dispatcher := new(mocks.MockDispatcher)
-	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, NewSet(), mapper, dispatcher)
 
@@ -95,7 +95,7 @@ func TestAcceptNotificationBasedOnContentType(t *testing.T) {
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
 	dispatcher := new(mocks.MockDispatcher)
-	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, contentTypeWhitelist, mapper, dispatcher)
 
@@ -116,7 +116,7 @@ func TestAcceptNotificationBasedOnAudioContentType(t *testing.T) {
 	contentTypeWhitelist.Add("application/vnd.ft-upp-audio+json")
 
 	dispatcher := new(mocks.MockDispatcher)
-	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, contentTypeWhitelist, mapper, dispatcher)
 
@@ -137,7 +137,7 @@ func TestDiscardNotificationBasedOnContentType(t *testing.T) {
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
 	dispatcher := new(mocks.MockDispatcher)
-	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
 
@@ -157,7 +157,7 @@ func TestAcceptNotificationBasedOnContentUriWhenContentTypeIsApplicationJson(t *
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
 	dispatcher := new(mocks.MockDispatcher)
-	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
 
@@ -178,7 +178,7 @@ func TestDiscardNotificationBasedOnContentUriWhenContentTypeIsApplicationJson(t 
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
 	dispatcher := new(mocks.MockDispatcher)
-	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
 
@@ -198,7 +198,7 @@ func TestAcceptNotificationBasedOnContentUriWhenContentTypeIsMissing(t *testing.
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
 	dispatcher := new(mocks.MockDispatcher)
-	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
 
@@ -219,7 +219,7 @@ func TestDiscardNotificationBasedOnContentUriWhenContentTypeIsMissing(t *testing
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
 	dispatcher := new(mocks.MockDispatcher)
-	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
 
@@ -254,7 +254,7 @@ func TestHandleMessage(t *testing.T) {
 	}
 
 	dispatcher := new(mocks.MockDispatcher)
-	dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return()
+	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
