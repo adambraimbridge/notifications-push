@@ -24,78 +24,63 @@ func (m *KeyValidator) Validate(ctx context.Context, key string) error {
 	return nil
 }
 
-// MockDispatcher is a mock of a dispatcher that can be reused for testing
-type MockDispatcher struct {
+// Dispatcher is a mock of a dispatcher that can be reused for testing
+type Dispatcher struct {
 	mock.Mock
 }
 
 // Start mocks Start
-func (m *MockDispatcher) Start() {
+func (m *Dispatcher) Start() {
 	m.Called()
 }
 
 // Stop mocks Stop
-func (m *MockDispatcher) Stop() {
+func (m *Dispatcher) Stop() {
 	m.Called()
 }
 
 // Send mocks Send
-func (m *MockDispatcher) Send(notification dispatch.Notification) {
+func (m *Dispatcher) Send(notification dispatch.Notification) {
 	m.Called(notification)
 }
 
 // Subscribers mocks Subscribers
-func (m *MockDispatcher) Subscribers() []dispatch.Subscriber {
+func (m *Dispatcher) Subscribers() []dispatch.Subscriber {
 	args := m.Called()
 	return args.Get(0).([]dispatch.Subscriber)
 }
 
-// Register mocks Register
-func (m *MockDispatcher) Register(subscriber dispatch.Subscriber) {
-	m.Called(subscriber)
-}
-
-// Close mocks Close
-func (m *MockDispatcher) Close(subscriber dispatch.Subscriber) {
-	m.Called(subscriber)
-}
-
-func (m *MockDispatcher) Subscribe(address string, subType string, monitoring bool) dispatch.Subscriber {
+func (m *Dispatcher) Subscribe(address string, subType string, monitoring bool) dispatch.Subscriber {
 	args := m.Called(address, subType, monitoring)
 	return args.Get(0).(dispatch.Subscriber)
 }
-func (m *MockDispatcher) Unsubscribe(s dispatch.Subscriber) {
+func (m *Dispatcher) Unsubscribe(s dispatch.Subscriber) {
 	m.Called(s)
 }
 
-type MockTransport struct {
+type transport struct {
 	ResponseStatusCode int
 	ResponseBody       string
-	ShouldReturnError  bool
+	Error              error
 }
 
-func MockHTTPClientWithResponseCode(responseCode int) *http.Client {
-	client := http.DefaultClient
-	client.Transport = &MockTransport{
-		ResponseStatusCode: responseCode,
+func ClientWithResponseCode(responseCode int) *http.Client {
+	return &http.Client{
+		Transport: &transport{
+			ResponseStatusCode: responseCode,
+		},
 	}
-	return client
 }
 
-func DefaultMockHTTPClient() *http.Client {
-	client := http.DefaultClient
-	client.Transport = &MockTransport{}
-	return client
-}
-
-func ErroringMockHTTPClient() *http.Client {
-	client := http.DefaultClient
-	client.Transport = &MockTransport{
-		ShouldReturnError: true,
+func ClientWithError(err error) *http.Client {
+	return &http.Client{
+		Transport: &transport{
+			Error: err,
+		},
 	}
-	return client
 }
-func (t *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+
+func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	response := &http.Response{
 		Header:     make(http.Header),
 		Request:    req,
@@ -105,8 +90,30 @@ func (t *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	response.Header.Set("Content-Type", "application/json")
 	response.Body = ioutil.NopCloser(strings.NewReader(t.ResponseBody))
 
-	if t.ShouldReturnError {
-		return nil, errors.New("Client error")
+	if t.Error != nil {
+		return nil, t.Error
 	}
 	return response, nil
+}
+
+type StatusCodeClient struct {
+	GetStatusCodeF func(url string) (int, error)
+}
+
+func (c *StatusCodeClient) GetStatusCode(url string) (int, error) {
+	if c.GetStatusCodeF != nil {
+		return c.GetStatusCodeF(url)
+	}
+	return 0, errors.New("not implemented")
+}
+
+type KafkaConsumer struct {
+	ConnectivityCheckF func() error
+}
+
+func (c *KafkaConsumer) ConnectivityCheck() error {
+	if c.ConnectivityCheckF != nil {
+		return c.ConnectivityCheckF()
+	}
+	return errors.New("Not implemented")
 }

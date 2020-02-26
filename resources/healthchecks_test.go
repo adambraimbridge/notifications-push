@@ -8,50 +8,28 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
+	"github.com/Financial-Times/notifications-push/v4/mocks"
 	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
 )
-
-type HttpClientMock struct {
-	GetStatusCodeF func(url string) (int, error)
-}
-
-func (m *HttpClientMock) GetStatusCode(url string) (int, error) {
-	if m.GetStatusCodeF != nil {
-		return m.GetStatusCodeF(url)
-	}
-	return 0, errors.New("not implemented")
-}
-
-type KafkaConsumerMock struct {
-	ConnectivityCheckF func() error
-}
-
-func (m *KafkaConsumerMock) ConnectivityCheck() error {
-	if m.ConnectivityCheckF != nil {
-		return m.ConnectivityCheckF()
-	}
-	return errors.New("Not implemented")
-}
 
 func TestHealthcheck(t *testing.T) {
 
 	tests := map[string]struct {
 		url               string
-		httpClientMock    *HttpClientMock
-		kafkaConsumerMock *KafkaConsumerMock
+		httpClientMock    *mocks.StatusCodeClient
+		kafkaConsumerMock *mocks.KafkaConsumer
 		expectedStatus    int
 		expectedBody      string
 	}{
 		"Success - both ok": {
 			url: "/__health",
-			httpClientMock: &HttpClientMock{
+			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 200, nil
 				},
 			},
-			kafkaConsumerMock: &KafkaConsumerMock{
+			kafkaConsumerMock: &mocks.KafkaConsumer{
 				ConnectivityCheckF: func() error {
 					return nil
 				},
@@ -61,12 +39,12 @@ func TestHealthcheck(t *testing.T) {
 		},
 		"Fail because of kafka": {
 			url: "/__health",
-			httpClientMock: &HttpClientMock{
+			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 200, nil
 				},
 			},
-			kafkaConsumerMock: &KafkaConsumerMock{
+			kafkaConsumerMock: &mocks.KafkaConsumer{
 				ConnectivityCheckF: func() error {
 					return errors.New("Sample error")
 				},
@@ -76,12 +54,12 @@ func TestHealthcheck(t *testing.T) {
 		},
 		"Fail because of ApiGateway does not return 200 OK": {
 			url: "/__health",
-			httpClientMock: &HttpClientMock{
+			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 403, nil
 				},
 			},
-			kafkaConsumerMock: &KafkaConsumerMock{
+			kafkaConsumerMock: &mocks.KafkaConsumer{
 				ConnectivityCheckF: func() error {
 					return nil
 				},
@@ -91,12 +69,12 @@ func TestHealthcheck(t *testing.T) {
 		},
 		"gtg endpoint success": {
 			url: "/__gtg",
-			httpClientMock: &HttpClientMock{
+			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 200, nil
 				},
 			},
-			kafkaConsumerMock: &KafkaConsumerMock{
+			kafkaConsumerMock: &mocks.KafkaConsumer{
 				ConnectivityCheckF: func() error {
 					return nil
 				},
@@ -106,12 +84,12 @@ func TestHealthcheck(t *testing.T) {
 		},
 		"gtg endpoint kafka failure": {
 			url: "/__gtg",
-			httpClientMock: &HttpClientMock{
+			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 200, nil
 				},
 			},
-			kafkaConsumerMock: &KafkaConsumerMock{
+			kafkaConsumerMock: &mocks.KafkaConsumer{
 				ConnectivityCheckF: func() error {
 					return errors.New("sample error")
 				},
@@ -121,12 +99,12 @@ func TestHealthcheck(t *testing.T) {
 		},
 		"gtg endpoint ApiGateway failure": {
 			url: "/__gtg",
-			httpClientMock: &HttpClientMock{
+			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 503, errors.New("gateway failed")
 				},
 			},
-			kafkaConsumerMock: &KafkaConsumerMock{
+			kafkaConsumerMock: &mocks.KafkaConsumer{
 				ConnectivityCheckF: func() error {
 					return nil
 				},
@@ -136,12 +114,12 @@ func TestHealthcheck(t *testing.T) {
 		},
 		"responds on build-info": {
 			url: "/__build-info",
-			httpClientMock: &HttpClientMock{
+			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 200, nil
 				},
 			},
-			kafkaConsumerMock: &KafkaConsumerMock{
+			kafkaConsumerMock: &mocks.KafkaConsumer{
 				ConnectivityCheckF: func() error {
 					return nil
 				},
@@ -151,12 +129,12 @@ func TestHealthcheck(t *testing.T) {
 		},
 		"responds on ping": {
 			url: "/__ping",
-			httpClientMock: &HttpClientMock{
+			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 200, nil
 				},
 			},
-			kafkaConsumerMock: &KafkaConsumerMock{
+			kafkaConsumerMock: &mocks.KafkaConsumer{
 				ConnectivityCheckF: func() error {
 					return nil
 				},

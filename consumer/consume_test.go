@@ -26,7 +26,7 @@ func TestSyntheticMessage(t *testing.T) {
 		Resource:   "lists",
 	}
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "SYNTH_tid"},
@@ -42,7 +42,7 @@ func TestFailedCMSMessageParse(t *testing.T) {
 		Resource:   "lists",
 	}
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"}, "")
@@ -57,7 +57,7 @@ func TestWhitelist(t *testing.T) {
 		Resource:   "lists",
 	}
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"},
@@ -73,7 +73,7 @@ func TestSparkCCTWhitelist(t *testing.T) {
 		Resource:   "content",
 	}
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, NewSet(), mapper, dispatcher)
@@ -94,7 +94,7 @@ func TestAcceptNotificationBasedOnContentType(t *testing.T) {
 	contentTypeWhitelist := NewSet()
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, contentTypeWhitelist, mapper, dispatcher)
@@ -115,7 +115,7 @@ func TestAcceptNotificationBasedOnAudioContentType(t *testing.T) {
 	contentTypeWhitelist := NewSet()
 	contentTypeWhitelist.Add("application/vnd.ft-upp-audio+json")
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, contentTypeWhitelist, mapper, dispatcher)
@@ -136,7 +136,7 @@ func TestDiscardNotificationBasedOnContentType(t *testing.T) {
 	contentTypeWhitelist := NewSet()
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
@@ -156,7 +156,7 @@ func TestAcceptNotificationBasedOnContentUriWhenContentTypeIsApplicationJson(t *
 	contentTypeWhitelist := NewSet()
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
@@ -177,7 +177,7 @@ func TestDiscardNotificationBasedOnContentUriWhenContentTypeIsApplicationJson(t 
 	contentTypeWhitelist := NewSet()
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
@@ -197,7 +197,7 @@ func TestAcceptNotificationBasedOnContentUriWhenContentTypeIsMissing(t *testing.
 	contentTypeWhitelist := NewSet()
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
@@ -218,7 +218,7 @@ func TestDiscardNotificationBasedOnContentUriWhenContentTypeIsMissing(t *testing
 	contentTypeWhitelist := NewSet()
 	contentTypeWhitelist.Add("application/vnd.ft-upp-article+json")
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(sparkIncludedWhiteList, contentTypeWhitelist, mapper, dispatcher)
@@ -236,7 +236,7 @@ func TestFailsConversionToNotification(t *testing.T) {
 		Resource:   "list",
 	}
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
@@ -253,7 +253,7 @@ func TestHandleMessage(t *testing.T) {
 		Resource:   "lists",
 	}
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
 
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
@@ -271,7 +271,7 @@ func TestHandleMessageMappingError(t *testing.T) {
 		Resource:   "lists",
 	}
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_summin"},
@@ -288,7 +288,7 @@ func TestDiscardStandardCarouselPublicationEvents(t *testing.T) {
 		Resource:   "lists",
 	}
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg1 := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_fzy2uqund8_carousel_1485954245"},
@@ -313,7 +313,7 @@ func TestDiscardCarouselPublicationEventsWithGeneratedTransactionID(t *testing.T
 		Resource:   "lists",
 	}
 
-	dispatcher := new(mocks.MockDispatcher)
+	dispatcher := &mocks.Dispatcher{}
 	handler := NewContentQueueHandler(defaultContentUriWhitelist, NewSet(), mapper, dispatcher)
 
 	msg := kafka.NewFTMessage(map[string]string{"X-Request-Id": "tid_fzy2uqund8_carousel_1485954245_gentx"},

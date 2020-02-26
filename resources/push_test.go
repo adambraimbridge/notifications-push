@@ -66,7 +66,7 @@ func TestSubscription(t *testing.T) {
 	}
 
 	v := &mocks.KeyValidator{}
-	d := &mocks.MockDispatcher{}
+	d := &mocks.Dispatcher{}
 	handler := NewSubHandler(d, v, heartbeat, "content", l)
 
 	for name, test := range tests {
@@ -132,7 +132,7 @@ func TestPassKeyAsParameter(t *testing.T) {
 	v.On("Validate", mock.Anything, keyAPI).Return(nil)
 
 	sub := dispatch.NewStandardSubscriber(req.RemoteAddr, defaultSubscriptionType)
-	d := &mocks.MockDispatcher{}
+	d := &mocks.Dispatcher{}
 	d.On("Subscribe", req.RemoteAddr, defaultSubscriptionType, false).Run(func(args mock.Arguments) {
 		go func() {
 			<-time.After(time.Millisecond * 10)
@@ -167,7 +167,7 @@ func TestInvalidKey(t *testing.T) {
 	v := &mocks.KeyValidator{}
 	v.On("Validate", mock.Anything, keyAPI).Return(NewKeyErr("failed key", http.StatusForbidden, ""))
 
-	d := &mocks.MockDispatcher{}
+	d := &mocks.Dispatcher{}
 
 	handler := NewSubHandler(d, v, heartbeat, "content", l)
 
@@ -199,7 +199,7 @@ func TestHeartbeat(t *testing.T) {
 	v.On("Validate", mock.Anything, keyAPI).Return(nil)
 
 	sub := dispatch.NewStandardSubscriber(subAddress, defaultSubscriptionType)
-	d := &mocks.MockDispatcher{}
+	d := &mocks.Dispatcher{}
 	d.On("Subscribe", subAddress, defaultSubscriptionType, false).Return(sub)
 	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
 
@@ -262,7 +262,7 @@ func TestPushNotificationDelay(t *testing.T) {
 	v.On("Validate", mock.Anything, keyAPI).Return(nil)
 
 	sub := dispatch.NewStandardSubscriber(subAddress, defaultSubscriptionType)
-	d := &mocks.MockDispatcher{}
+	d := &mocks.Dispatcher{}
 	d.On("Subscribe", subAddress, defaultSubscriptionType, false).Run(func(args mock.Arguments) {
 		go func() {
 			<-time.After(notificationDelay)
@@ -326,7 +326,7 @@ func TestSubscriptionEndpoint(t *testing.T) {
 	v.On("Validate", mock.Anything, mock.AnythingOfType("string")).Return(nil)
 
 	sub := dispatch.NewStandardSubscriber("test-addres", "Audio")
-	d := &mocks.MockDispatcher{}
+	d := &mocks.Dispatcher{}
 	d.On("Subscribe", mock.AnythingOfType("string"), "Audio", false).Run(func(args mock.Arguments) {
 		go func() {
 			<-time.After(time.Millisecond * 10)

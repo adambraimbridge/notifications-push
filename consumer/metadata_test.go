@@ -86,7 +86,7 @@ func TestMetadata(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			dispatcher := &mocks.MockDispatcher{}
+			dispatcher := &mocks.Dispatcher{}
 			dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return().
 				Run(func(args mock.Arguments) {
 					arg := args.Get(0).(dispatch.Notification)
