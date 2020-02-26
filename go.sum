@@ -10,6 +10,7 @@ github.com/Financial-Times/kafka v0.0.0-20181214115819-fddecb2b8f89 h1:r65DcJRWx
 github.com/Financial-Times/kafka v0.0.0-20181214115819-fddecb2b8f89/go.mod h1:9iEKOqzCx6y18PdEhz4FrHLTMoMXQeN4I9vRCszREdc=
 github.com/Financial-Times/kafka-client-go v0.0.0-20181214120216-c3a1941e42a4 h1:CegBNpfIGQfUzcDHC6fmAzvhSVCWFMug68eod/8FLQg=
 github.com/Financial-Times/kafka-client-go v0.0.0-20181214120216-c3a1941e42a4/go.mod h1:IRxo6zPqM44uCWpM7YBkm5o9lOxwPgR0/WvCX0KcV/Y=
+github.com/Financial-Times/notifications-push v3.0.9+incompatible h1:ZDxAsWxBtzW0zZep3oqvEkkOj43fx7l7bRlyIvQMq84=
 github.com/Financial-Times/service-status-go v0.0.0-20160323111542-3f5199736a3d h1:USNBTIof6vWGM49SYrxvC5Y8NqyDL3YuuYmID81ORZQ=
 github.com/Financial-Times/service-status-go v0.0.0-20160323111542-3f5199736a3d/go.mod h1:7zULC9rrq6KxFkpB3Y5zNVaEwrf1g2m3dvXJBPDXyvM=
 github.com/Shopify/sarama v1.23.1 h1:XxJBCZEoWJtoWjf/xRbmGUpAmTZGnuuF0ON0EvxxBrs=

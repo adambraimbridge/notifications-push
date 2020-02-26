@@ -13,7 +13,7 @@ import (
 
 	logger "github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
-	"github.com/Financial-Times/notifications-push/v4/test/mocks"
+	"github.com/Financial-Times/notifications-push/v4/mocks"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

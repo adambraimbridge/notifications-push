@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
-	"github.com/Financial-Times/notifications-push/v4/test/mocks"
+	"github.com/Financial-Times/notifications-push/v4/mocks"
 )
 
 func TestStats(t *testing.T) {

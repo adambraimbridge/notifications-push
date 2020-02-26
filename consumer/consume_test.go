@@ -10,7 +10,7 @@ import (
 	logger "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 
-	"github.com/Financial-Times/notifications-push/v4/test/mocks"
+	"github.com/Financial-Times/notifications-push/v4/mocks"
 )
 
 var defaultContentUriWhitelist = regexp.MustCompile(`^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/(lists)/[\w-]+.*$`)
