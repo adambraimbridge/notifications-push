@@ -9,23 +9,27 @@ import (
 	log "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	cons "github.com/Financial-Times/notifications-push/v4/consumer"
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
 type pushService struct {
-	dispatcher dispatch.Dispatcher
-	consumer   kafka.Consumer
+	notifications notificationSystem
+	consumer      kafka.Consumer
 }
 
-func newPushService(d dispatch.Dispatcher, consumer kafka.Consumer) *pushService {
+type notificationSystem interface {
+	Start()
+	Stop()
+}
+
+func newPushService(n notificationSystem, consumer kafka.Consumer) *pushService {
 	return &pushService{
-		dispatcher: d,
-		consumer:   consumer,
+		notifications: n,
+		consumer:      consumer,
 	}
 }
 
 func (p *pushService) start(queueHandler cons.MessageQueueHandler) {
-	go p.dispatcher.Start()
+	go p.notifications.Start()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -42,6 +46,6 @@ func (p *pushService) start(queueHandler cons.MessageQueueHandler) {
 	<-ch
 	log.Info("Termination signal received. Quitting message consumer and notification dispatcher function.")
 	p.consumer.Shutdown()
-	p.dispatcher.Stop()
+	p.notifications.Stop()
 	wg.Wait()
 }

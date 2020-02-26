@@ -3,24 +3,23 @@ package consumer
 import (
 	log "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
-type metadataQueueHandler struct {
+type MetadataQueueHandler struct {
 	originWhitelist []string
 	mapper          NotificationMapper
-	dispatcher      dispatch.Dispatcher
+	dispatcher      notificationDispatcher
 }
 
-func NewMetadataQueueHandler(originWhitelist []string, mapper NotificationMapper, dispatcher dispatch.Dispatcher) *metadataQueueHandler {
-	return &metadataQueueHandler{
+func NewMetadataQueueHandler(originWhitelist []string, mapper NotificationMapper, dispatcher notificationDispatcher) *MetadataQueueHandler {
+	return &MetadataQueueHandler{
 		originWhitelist: originWhitelist,
 		mapper:          mapper,
 		dispatcher:      dispatcher,
 	}
 }
 
-func (h *metadataQueueHandler) HandleMessage(queueMsg kafka.FTMessage) error {
+func (h *MetadataQueueHandler) HandleMessage(queueMsg kafka.FTMessage) error {
 	msg := NotificationQueueMessage{queueMsg}
 	tid := msg.TransactionID()
 	logger := log.WithTransactionID(tid)
@@ -48,7 +47,7 @@ func (h *metadataQueueHandler) HandleMessage(queueMsg kafka.FTMessage) error {
 	return nil
 }
 
-func (h *metadataQueueHandler) IsAllowedOrigin(origin string) bool {
+func (h *MetadataQueueHandler) IsAllowedOrigin(origin string) bool {
 	for _, o := range h.originWhitelist {
 		if o == origin {
 			return true

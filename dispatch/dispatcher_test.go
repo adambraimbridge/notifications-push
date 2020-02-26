@@ -217,7 +217,7 @@ func TestInternalFailToSendNotifications(t *testing.T) {
 	defer hook.Reset()
 
 	h := NewHistory(historySize)
-	d := NewDispatcher(0, h).(*dispatcher)
+	d := NewDispatcher(0, h)
 
 	s1 := &MockSubscriber{}
 	s2 := &MockSubscriber{}
@@ -254,7 +254,7 @@ func TestInternalFailToSendNotifications(t *testing.T) {
 
 func verifyNotificationResponse(t *testing.T, expected Notification, notBefore time.Time, notAfter time.Time, actualMsg string) {
 	actualNotifications := []Notification{}
-	json.Unmarshal([]byte(actualMsg), &actualNotifications)
+	_ = json.Unmarshal([]byte(actualMsg), &actualNotifications)
 	require.True(t, len(actualNotifications) > 0)
 	actual := actualNotifications[0]
 

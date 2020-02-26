@@ -225,14 +225,14 @@ func startSubscriber(ctx context.Context, serverURL string, subType string) (<-c
 	return ch, nil
 }
 
-func startDispatcher(delay time.Duration, historySize int) dispatch.Dispatcher {
+func startDispatcher(delay time.Duration, historySize int) *dispatch.Dispatcher {
 	h := dispatch.NewHistory(historySize)
 	d := dispatch.NewDispatcher(delay, h)
 	go d.Start()
 	return d
 }
 
-func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, originWhitelist []string, resource string, apiURL string, d dispatch.Dispatcher) consumer.MessageQueueHandler {
+func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, originWhitelist []string, resource string, apiURL string, d *dispatch.Dispatcher) consumer.MessageQueueHandler {
 	set := consumer.NewSet()
 	for _, value := range typeWhitelist {
 		set.Add(value)

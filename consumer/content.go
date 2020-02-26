@@ -6,7 +6,6 @@ import (
 
 	log "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/kafka-client-go/kafka"
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
 var exists = struct{}{}
@@ -30,24 +29,24 @@ func (s *Set) Contains(value string) bool {
 	return c
 }
 
-type contentQueueHandler struct {
-	contentUriWhitelist  *regexp.Regexp
+type ContentQueueHandler struct {
+	contentURIWhitelist  *regexp.Regexp
 	contentTypeWhitelist *Set
 	mapper               NotificationMapper
-	dispatcher           dispatch.Dispatcher
+	dispatcher           notificationDispatcher
 }
 
 // NewContentQueueHandler returns a new message handler
-func NewContentQueueHandler(contentUriWhitelist *regexp.Regexp, contentTypeWhitelist *Set, mapper NotificationMapper, dispatcher dispatch.Dispatcher) *contentQueueHandler {
-	return &contentQueueHandler{
-		contentUriWhitelist:  contentUriWhitelist,
+func NewContentQueueHandler(contentURIWhitelist *regexp.Regexp, contentTypeWhitelist *Set, mapper NotificationMapper, dispatcher notificationDispatcher) *ContentQueueHandler {
+	return &ContentQueueHandler{
+		contentURIWhitelist:  contentURIWhitelist,
 		contentTypeWhitelist: contentTypeWhitelist,
 		mapper:               mapper,
 		dispatcher:           dispatcher,
 	}
 }
 
-func (qHandler *contentQueueHandler) HandleMessage(queueMsg kafka.FTMessage) error {
+func (qHandler *ContentQueueHandler) HandleMessage(queueMsg kafka.FTMessage) error {
 	msg := NotificationQueueMessage{queueMsg}
 	tid := msg.TransactionID()
 	pubEvent, err := msg.ToPublicationEvent()
@@ -71,7 +70,7 @@ func (qHandler *contentQueueHandler) HandleMessage(queueMsg kafka.FTMessage) err
 
 	strippedDirectivesContentType := stripDirectives(contentType)
 	if strippedDirectivesContentType == "application/json" || strippedDirectivesContentType == "" {
-		if !pubEvent.Matches(qHandler.contentUriWhitelist) {
+		if !pubEvent.Matches(qHandler.contentURIWhitelist) {
 			monitoringLogger.WithValidFlag(false).WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: contentUri is not in the whitelist.")
 			return nil
 		}
