@@ -2,26 +2,25 @@ package resources
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
 	"net/http"
 	"time"
 )
 
-type HttpClient struct {
+type HTTPClient struct {
 }
 
 // GetStatusCode - sends GET request and returns status code
-func (hc *HttpClient) GetStatusCode(url string) (int, error) {
+func (hc *HTTPClient) GetStatusCode(url string) (int, error) {
 
 	r, err := http.NewRequest("GET", url, bytes.NewReader([]byte("")))
 	if err != nil {
-		return 0, errors.New("Error creating request")
+		return 0, fmt.Errorf("error creating request: %w", err)
 	}
-
-	httpClient := &http.Client{Timeout: time.Second * 15}
-	res, err := httpClient.Do(r)
+	client := &http.Client{Timeout: time.Second * 15}
+	res, err := client.Do(r)
 	if err != nil {
-		return 0, errors.New("Error making http request to GTG endpoint")
+		return 0, fmt.Errorf("error making http request:%w", err)
 	}
 	defer res.Body.Close()
 

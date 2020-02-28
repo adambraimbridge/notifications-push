@@ -176,11 +176,11 @@ func resolveSubType(r *http.Request) (string, error) {
 		return defaultSubscriptionType, nil
 	}
 	for _, t := range supportedSubscriptionTypes {
-		if strings.ToLower(subType) == strings.ToLower(t) {
+		if strings.EqualFold(subType, t) {
 			return subType, nil
 		}
 	}
-	return "", fmt.Errorf("The specified type (%s) is unsupported", subType)
+	return "", fmt.Errorf("specified type (%s) is unsupported", subType)
 }
 
 //ApiKey is provided either as a request param or as a header.

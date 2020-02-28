@@ -3,7 +3,6 @@ package resources
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -46,7 +45,7 @@ func TestHealthcheck(t *testing.T) {
 			},
 			kafkaConsumerMock: &mocks.KafkaConsumer{
 				ConnectivityCheckF: func() error {
-					return errors.New("Sample error")
+					return errors.New("sample error")
 				},
 			},
 			expectedStatus: 200,
@@ -95,7 +94,7 @@ func TestHealthcheck(t *testing.T) {
 				},
 			},
 			expectedStatus: 503,
-			expectedBody:   "Error connecting to kafka queue",
+			expectedBody:   "error connecting to kafka queue",
 		},
 		"gtg endpoint ApiGateway failure": {
 			url: "/__gtg",
@@ -145,27 +144,27 @@ func TestHealthcheck(t *testing.T) {
 	}
 
 	for name, test := range tests {
-		fmt.Printf("Running test %s \n", name)
+		t.Run(name, func(t *testing.T) {
 
-		hc := NewHealthCheck(test.kafkaConsumerMock, "randomAddress", test.httpClientMock)
+			hc := NewHealthCheck(test.kafkaConsumerMock, "randomAddress", test.httpClientMock)
 
-		req, err := http.NewRequest("GET", test.url, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+			req, err := http.NewRequest("GET", test.url, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		rr := httptest.NewRecorder()
-		servicesRouter := mux.NewRouter()
-		hc.RegisterHandlers(servicesRouter)
+			rr := httptest.NewRecorder()
+			servicesRouter := mux.NewRouter()
+			hc.RegisterHandlers(servicesRouter)
 
-		servicesRouter.ServeHTTP(rr, req)
+			servicesRouter.ServeHTTP(rr, req)
 
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(rr.Body)
-		body := buf.String()
+			buf := new(bytes.Buffer)
+			_, _ = buf.ReadFrom(rr.Body)
+			body := buf.String()
 
-		assert.Equal(t, test.expectedStatus, rr.Code, name+" failed")
-		assert.Contains(t, body, test.expectedBody, name+" failed")
+			assert.Equal(t, test.expectedStatus, rr.Code, name+" failed")
+			assert.Contains(t, body, test.expectedBody, name+" failed")
+		})
 	}
-
 }

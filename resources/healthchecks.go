@@ -13,7 +13,7 @@ import (
 
 const panicGuideURL = "https://runbooks.in.ft.com/upp-notifications-push"
 
-type HealthCheckHttpClient interface {
+type StatusClient interface {
 	GetStatusCode(url string) (int, error)
 }
 
@@ -22,16 +22,16 @@ type KafkaConsumer interface {
 }
 
 type HealthCheck struct {
-	Consumer             KafkaConsumer
-	HttpClient           HealthCheckHttpClient
-	ApiGatewayGTGAddress string
+	consumer             KafkaConsumer
+	statusClient         StatusClient
+	apiGatewayGTGAddress string
 }
 
-func NewHealthCheck(kafkaConsumer KafkaConsumer, apiGatewayGTGAddress string, httpClient HealthCheckHttpClient) *HealthCheck {
+func NewHealthCheck(kafkaConsumer KafkaConsumer, apiGatewayGTGAddress string, httpClient StatusClient) *HealthCheck {
 	return &HealthCheck{
-		Consumer:             kafkaConsumer,
-		ApiGatewayGTGAddress: apiGatewayGTGAddress,
-		HttpClient:           httpClient,
+		consumer:             kafkaConsumer,
+		apiGatewayGTGAddress: apiGatewayGTGAddress,
+		statusClient:         httpClient,
 	}
 }
 
@@ -78,7 +78,7 @@ func (h *HealthCheck) GTG() gtg.Status {
 		return gtg.Status{GoodToGo: false, Message: err.Error()}
 	}
 
-	if _, err := h.checkApiGatewayService(); err != nil {
+	if _, err := h.checkAPIGatewayService(); err != nil {
 		return gtg.Status{GoodToGo: false, Message: err.Error()}
 	}
 
@@ -87,12 +87,12 @@ func (h *HealthCheck) GTG() gtg.Status {
 
 func (h *HealthCheck) checkAggregateMessageQueueReachable() (string, error) {
 	// ISSUE: consumer's helthcheck always returns true
-	err := h.Consumer.ConnectivityCheck()
+	err := h.consumer.ConnectivityCheck()
 	if err == nil {
 		return "Connectivity to kafka is OK.", nil
 	}
 
-	return "Error connecting to kafka", errors.New("Error connecting to kafka queue")
+	return "Error connecting to kafka", errors.New("error connecting to kafka queue")
 }
 
 // checks if apiGateway service is available
@@ -104,13 +104,13 @@ func (h *HealthCheck) apiGatewayCheck() fthealth.Check {
 		BusinessImpact:   "If apiGateway service is not available, consumer's helthcheck will return false ",
 		TechnicalSummary: "Checking if apiGateway service is available or not",
 		PanicGuide:       panicGuideURL,
-		Checker:          h.checkApiGatewayService,
+		Checker:          h.checkAPIGatewayService,
 	}
 }
 
-func (h *HealthCheck) checkApiGatewayService() (string, error) {
+func (h *HealthCheck) checkAPIGatewayService() (string, error) {
 
-	statusCode, err := h.HttpClient.GetStatusCode(h.ApiGatewayGTGAddress)
+	statusCode, err := h.statusClient.GetStatusCode(h.apiGatewayGTGAddress)
 	if err != nil {
 		return "", err
 	}
@@ -119,6 +119,6 @@ func (h *HealthCheck) checkApiGatewayService() (string, error) {
 		return "ApiGateway service is working", nil
 	}
 
-	return "", errors.New("Unable to verify ApiGateway service is working")
+	return "", errors.New("unable to verify ApiGateway service is working")
 
 }

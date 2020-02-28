@@ -202,7 +202,7 @@ func main() {
 
 		apiGatewayHealthcheckURL = apiGatewayHealthcheckURL.ResolveReference(r)
 
-		hc := resources.NewHealthCheck(messageConsumer, apiGatewayHealthcheckURL.String(), &resources.HttpClient{})
+		hc := resources.NewHealthCheck(messageConsumer, apiGatewayHealthcheckURL.String(), &resources.HTTPClient{})
 
 		apiGatewayKeyValidationURL := fmt.Sprintf("%s/%s", *apiBaseURL, *apiKeyValidationEndpoint)
 

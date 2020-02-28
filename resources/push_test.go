@@ -60,7 +60,7 @@ func TestSubscription(t *testing.T) {
 		},
 		"Test Push Invalid Subscription": {
 			Request:        "/content/notifications-push?type=Invalid",
-			ExpectedBody:   "The specified type (Invalid) is unsupported\n",
+			ExpectedBody:   "specified type (Invalid) is unsupported\n",
 			ExpectedStatus: http.StatusBadRequest,
 		},
 	}
@@ -325,7 +325,7 @@ func TestSubscriptionEndpoint(t *testing.T) {
 	v := &mocks.KeyValidator{}
 	v.On("Validate", mock.Anything, mock.AnythingOfType("string")).Return(nil)
 
-	sub := dispatch.NewStandardSubscriber("test-addres", "Audio")
+	sub := dispatch.NewStandardSubscriber("test-address", "Audio")
 	d := &mocks.Dispatcher{}
 	d.On("Subscribe", mock.AnythingOfType("string"), "Audio", false).Run(func(args mock.Arguments) {
 		go func() {
