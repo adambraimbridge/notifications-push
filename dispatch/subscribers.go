@@ -46,6 +46,7 @@ func NewStandardSubscriber(address string, subType string) Subscriber {
 
 // Id returns the uniquely generated subscriber identifier
 // Returned value is assigned during the construction phase.
+// nolint: golint stylecheck
 func (s *standardSubscriber) Id() string {
 	return s.id
 }
@@ -156,7 +157,7 @@ func NewMonitorSubscriber(address string, subType string) Subscriber {
 
 func (m *monitorSubscriber) send(n Notification) error {
 	// -- set subscriberId for NPM traceability only for monitor mode subscribers
-	n.SubscriberId = m.Id()
+	n.SubscriberID = m.Id()
 	// --
 
 	notificationMsg, err := buildMonitorNotificationMsg(n)
@@ -183,7 +184,7 @@ func (m *monitorSubscriber) MarshalJSON() ([]byte, error) {
 
 // SubscriberPayload is the JSON representation of a generic subscriber
 type SubscriberPayload struct {
-	Id                 string `json:"id"`
+	ID                 string `json:"id"`
 	Address            string `json:"address"`
 	Since              string `json:"since"`
 	ConnectionDuration string `json:"connectionDuration"`
@@ -192,7 +193,7 @@ type SubscriberPayload struct {
 
 func newSubscriberPayload(s Subscriber) *SubscriberPayload {
 	return &SubscriberPayload{
-		Id:                 s.Id(),
+		ID:                 s.Id(),
 		Address:            s.Address(),
 		Since:              s.Since().Format(time.StampMilli),
 		ConnectionDuration: time.Since(s.Since()).String(),

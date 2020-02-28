@@ -115,5 +115,5 @@ func (c *KafkaConsumer) ConnectivityCheck() error {
 	if c.ConnectivityCheckF != nil {
 		return c.ConnectivityCheckF()
 	}
-	return errors.New("Not implemented")
+	return errors.New("not implemented")
 }
