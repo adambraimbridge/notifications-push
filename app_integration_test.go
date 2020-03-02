@@ -3,7 +3,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -15,6 +17,7 @@ import (
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/Financial-Times/notifications-push/v4/consumer"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/Financial-Times/notifications-push/v4/mocks"
 	"github.com/Financial-Times/notifications-push/v4/resources"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -63,9 +66,10 @@ func TestPushNotifications(t *testing.T) {
 
 	// handlers vars
 	var (
-		apiGatewayURL = "/api-gateway"
-		heartbeat     = time.Second * 1
-		resource      = "content"
+		apiGatewayURL    = "/api-gateway"
+		apiGatewayGTGURL = "/api-gateway/__gtg"
+		heartbeat        = time.Second * 1
+		resource         = "content"
 	)
 	// dispatch vars
 	var (
@@ -82,8 +86,11 @@ func TestPushNotifications(t *testing.T) {
 		sendDelay                       = time.Millisecond * 190
 	)
 
+	// mocks
+	queue := &mocks.KafkaConsumer{}
+	statusClient := &mocks.StatusCodeClient{}
 	// dispatcher
-	d := startDispatcher(delay, historySize)
+	d, h := startDispatcher(delay, historySize)
 	defer d.Stop()
 
 	// consumer
@@ -95,9 +102,12 @@ func TestPushNotifications(t *testing.T) {
 	defer server.Close()
 
 	// handler
+	hc := resources.NewHealthCheck(queue, apiGatewayGTGURL, statusClient)
+
 	keyValidator := resources.NewKeyValidator(server.URL+apiGatewayURL, http.DefaultClient, l)
-	s := resources.NewSubHandler(d, keyValidator, heartbeat, resource, l)
-	s.RegisterHandlers(router)
+	s := resources.NewSubHandler(d, keyValidator, heartbeat, l)
+
+	initRouter(router, s, resource, d, h, hc)
 
 	// key validation
 	router.HandleFunc(apiGatewayURL, func(resp http.ResponseWriter, req *http.Request) {
@@ -106,6 +116,8 @@ func TestPushNotifications(t *testing.T) {
 
 	// context that controls the live of all subscribers
 	ctx, cancel := context.WithCancel(context.Background())
+
+	testHealthcheckEndpoints(ctx, t, server.URL, queue, statusClient)
 
 	testClientWithNONotifications(ctx, t, server.URL, heartbeat, "Audio")
 	testClientWithNotifications(ctx, t, server.URL, "Article", expectedArticleNotificationBody)
@@ -140,6 +152,101 @@ func TestPushNotifications(t *testing.T) {
 	// shutdown test
 	cancel()
 
+}
+
+func testHealthcheckEndpoints(ctx context.Context, t *testing.T, serverURL string, queue *mocks.KafkaConsumer, statusClient *mocks.StatusCodeClient) {
+
+	tests := map[string]struct {
+		url            string
+		expectedStatus int
+		expectedBody   string
+		clientFunc     func(string) (int, error)
+		kafkaFunc      func() error
+	}{"gtg endpoint success": {
+		url: "/__gtg",
+		clientFunc: func(url string) (int, error) {
+			return 200, nil
+		},
+		kafkaFunc: func() error {
+			return nil
+		},
+		expectedStatus: 200,
+		expectedBody:   "OK",
+	},
+		"gtg endpoint kafka failure": {
+			url: "/__gtg",
+			clientFunc: func(url string) (int, error) {
+				return 200, nil
+			},
+			kafkaFunc: func() error {
+				return errors.New("sample error")
+			},
+			expectedStatus: 503,
+			expectedBody:   "error connecting to kafka queue",
+		},
+		"gtg endpoint ApiGateway failure": {
+			url: "/__gtg",
+			clientFunc: func(url string) (int, error) {
+				return 503, errors.New("gateway failed")
+			},
+			kafkaFunc: func() error {
+				return nil
+			},
+			expectedStatus: 503,
+			expectedBody:   "gateway failed",
+		},
+		"responds on build-info": {
+			url: "/__build-info",
+			clientFunc: func(url string) (int, error) {
+				return 200, nil
+			},
+			kafkaFunc: func() error {
+				return nil
+			},
+			expectedStatus: 200,
+			expectedBody:   `{"version":`,
+		},
+		"responds on ping": {
+			url: "/__ping",
+			clientFunc: func(url string) (int, error) {
+				return 200, nil
+			},
+			kafkaFunc: func() error {
+				return nil
+			},
+			expectedStatus: 200,
+			expectedBody:   "pong",
+		},
+	}
+	backupClientFunc := statusClient.GetStatusCodeF
+	backupKafkaFunc := queue.ConnectivityCheckF
+	defer func() {
+		statusClient.GetStatusCodeF = backupClientFunc
+		queue.ConnectivityCheckF = backupKafkaFunc
+	}()
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			statusClient.GetStatusCodeF = test.clientFunc
+			queue.ConnectivityCheckF = test.kafkaFunc
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, serverURL+test.url, nil)
+			if err != nil {
+				t.Fatalf("could not create request: %v", err)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("failed making request: %v", err)
+			}
+			defer resp.Body.Close()
+
+			buf := new(bytes.Buffer)
+			_, _ = buf.ReadFrom(resp.Body)
+			body := buf.String()
+
+			assert.Equal(t, test.expectedStatus, resp.StatusCode)
+			assert.Contains(t, body, test.expectedBody)
+		})
+	}
 }
 
 // Tests a subscriber that expects only notifications
@@ -225,11 +332,11 @@ func startSubscriber(ctx context.Context, serverURL string, subType string) (<-c
 	return ch, nil
 }
 
-func startDispatcher(delay time.Duration, historySize int) *dispatch.Dispatcher {
+func startDispatcher(delay time.Duration, historySize int) (*dispatch.Dispatcher, dispatch.History) {
 	h := dispatch.NewHistory(historySize)
 	d := dispatch.NewDispatcher(delay, h)
 	go d.Start()
-	return d
+	return d, h
 }
 
 func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, originWhitelist []string, resource string, apiURL string, d *dispatch.Dispatcher) consumer.MessageQueueHandler {

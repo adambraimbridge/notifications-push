@@ -12,7 +12,6 @@ import (
 
 	logger "github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -46,26 +45,19 @@ type SubHandler struct {
 	notif           notifier
 	validator       keyValidator
 	heartbeatPeriod time.Duration
-	resource        string
 	log             *logger.UPPLogger
 }
 
 func NewSubHandler(n notifier,
 	validator keyValidator,
 	heartbeatPeriod time.Duration,
-	resource string,
 	log *logger.UPPLogger) *SubHandler {
 	return &SubHandler{
 		notif:           n,
 		validator:       validator,
 		heartbeatPeriod: heartbeatPeriod,
-		resource:        resource,
 		log:             log,
 	}
-}
-
-func (h *SubHandler) RegisterHandlers(r *mux.Router) {
-	r.HandleFunc("/"+h.resource+"/notifications-push", h.HandleSubscription).Methods("GET")
 }
 
 func (h *SubHandler) HandleSubscription(w http.ResponseWriter, r *http.Request) {

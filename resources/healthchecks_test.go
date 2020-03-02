@@ -15,14 +15,12 @@ import (
 func TestHealthcheck(t *testing.T) {
 
 	tests := map[string]struct {
-		url               string
 		httpClientMock    *mocks.StatusCodeClient
 		kafkaConsumerMock *mocks.KafkaConsumer
 		expectedStatus    int
 		expectedBody      string
 	}{
 		"Success - both ok": {
-			url: "/__health",
 			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 200, nil
@@ -37,7 +35,6 @@ func TestHealthcheck(t *testing.T) {
 			expectedBody:   `"ok":true}`,
 		},
 		"Fail because of kafka": {
-			url: "/__health",
 			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 200, nil
@@ -52,7 +49,6 @@ func TestHealthcheck(t *testing.T) {
 			expectedBody:   `"ok":false,"severity":1}`,
 		},
 		"Fail because of ApiGateway does not return 200 OK": {
-			url: "/__health",
 			httpClientMock: &mocks.StatusCodeClient{
 				GetStatusCodeF: func(url string) (int, error) {
 					return 403, nil
@@ -66,81 +62,6 @@ func TestHealthcheck(t *testing.T) {
 			expectedStatus: 200,
 			expectedBody:   `"ok":false,"severity":1}`,
 		},
-		"gtg endpoint success": {
-			url: "/__gtg",
-			httpClientMock: &mocks.StatusCodeClient{
-				GetStatusCodeF: func(url string) (int, error) {
-					return 200, nil
-				},
-			},
-			kafkaConsumerMock: &mocks.KafkaConsumer{
-				ConnectivityCheckF: func() error {
-					return nil
-				},
-			},
-			expectedStatus: 200,
-			expectedBody:   "OK",
-		},
-		"gtg endpoint kafka failure": {
-			url: "/__gtg",
-			httpClientMock: &mocks.StatusCodeClient{
-				GetStatusCodeF: func(url string) (int, error) {
-					return 200, nil
-				},
-			},
-			kafkaConsumerMock: &mocks.KafkaConsumer{
-				ConnectivityCheckF: func() error {
-					return errors.New("sample error")
-				},
-			},
-			expectedStatus: 503,
-			expectedBody:   "error connecting to kafka queue",
-		},
-		"gtg endpoint ApiGateway failure": {
-			url: "/__gtg",
-			httpClientMock: &mocks.StatusCodeClient{
-				GetStatusCodeF: func(url string) (int, error) {
-					return 503, errors.New("gateway failed")
-				},
-			},
-			kafkaConsumerMock: &mocks.KafkaConsumer{
-				ConnectivityCheckF: func() error {
-					return nil
-				},
-			},
-			expectedStatus: 503,
-			expectedBody:   "gateway failed",
-		},
-		"responds on build-info": {
-			url: "/__build-info",
-			httpClientMock: &mocks.StatusCodeClient{
-				GetStatusCodeF: func(url string) (int, error) {
-					return 200, nil
-				},
-			},
-			kafkaConsumerMock: &mocks.KafkaConsumer{
-				ConnectivityCheckF: func() error {
-					return nil
-				},
-			},
-			expectedStatus: 200,
-			expectedBody:   `{"version":`,
-		},
-		"responds on ping": {
-			url: "/__ping",
-			httpClientMock: &mocks.StatusCodeClient{
-				GetStatusCodeF: func(url string) (int, error) {
-					return 200, nil
-				},
-			},
-			kafkaConsumerMock: &mocks.KafkaConsumer{
-				ConnectivityCheckF: func() error {
-					return nil
-				},
-			},
-			expectedStatus: 200,
-			expectedBody:   "pong",
-		},
 	}
 
 	for name, test := range tests {
@@ -148,14 +69,14 @@ func TestHealthcheck(t *testing.T) {
 
 			hc := NewHealthCheck(test.kafkaConsumerMock, "randomAddress", test.httpClientMock)
 
-			req, err := http.NewRequest("GET", test.url, nil)
+			req, err := http.NewRequest("GET", "/__health", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			rr := httptest.NewRecorder()
 			servicesRouter := mux.NewRouter()
-			hc.RegisterHandlers(servicesRouter)
+			servicesRouter.HandleFunc("/__health", hc.Health()).Methods("GET")
 
 			servicesRouter.ServeHTTP(rr, req)
 

@@ -14,7 +14,6 @@ import (
 	logger "github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 	"github.com/Financial-Times/notifications-push/v4/mocks"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -67,7 +66,7 @@ func TestSubscription(t *testing.T) {
 
 	v := &mocks.KeyValidator{}
 	d := &mocks.Dispatcher{}
-	handler := NewSubHandler(d, v, heartbeat, "content", l)
+	handler := NewSubHandler(d, v, heartbeat, l)
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -141,7 +140,7 @@ func TestPassKeyAsParameter(t *testing.T) {
 	}).Return(sub)
 	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
 
-	handler := NewSubHandler(d, v, heartbeat, "content", l)
+	handler := NewSubHandler(d, v, heartbeat, l)
 
 	handler.HandleSubscription(resp, req)
 
@@ -169,7 +168,7 @@ func TestInvalidKey(t *testing.T) {
 
 	d := &mocks.Dispatcher{}
 
-	handler := NewSubHandler(d, v, heartbeat, "content", l)
+	handler := NewSubHandler(d, v, heartbeat, l)
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/content/notifications-push", nil)
@@ -203,7 +202,7 @@ func TestHeartbeat(t *testing.T) {
 	d.On("Subscribe", subAddress, defaultSubscriptionType, false).Return(sub)
 	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
 
-	handler := NewSubHandler(d, v, heartbeat, "content", l)
+	handler := NewSubHandler(d, v, heartbeat, l)
 
 	req, _ := http.NewRequest(http.MethodGet, "/content/notifications-push", nil)
 	req = req.WithContext(ctx)
@@ -271,7 +270,7 @@ func TestPushNotificationDelay(t *testing.T) {
 	}).Return(sub)
 	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
 
-	handler := NewSubHandler(d, v, heartbeat, "content", l)
+	handler := NewSubHandler(d, v, heartbeat, l)
 
 	req, _ := http.NewRequest(http.MethodGet, "/content/notifications-push", nil)
 	req = req.WithContext(ctx)
@@ -310,51 +309,6 @@ func TestPushNotificationDelay(t *testing.T) {
 	<-time.After(time.Millisecond * 5)
 
 	assert.Equal(t, http.StatusOK, pipe.Code, "Should be OK")
-	d.AssertExpectations(t)
-	v.AssertExpectations(t)
-}
-
-func TestSubscriptionEndpoint(t *testing.T) {
-
-	l := logger.NewUPPLogger("TEST", "PANIC")
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	heartbeat := time.Second * 1
-
-	v := &mocks.KeyValidator{}
-	v.On("Validate", mock.Anything, mock.AnythingOfType("string")).Return(nil)
-
-	sub := dispatch.NewStandardSubscriber("test-address", "Audio")
-	d := &mocks.Dispatcher{}
-	d.On("Subscribe", mock.AnythingOfType("string"), "Audio", false).Run(func(args mock.Arguments) {
-		go func() {
-			<-time.After(time.Millisecond * 10)
-			cancel()
-		}()
-	}).Return(sub)
-	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
-
-	handler := NewSubHandler(d, v, heartbeat, "content", l)
-
-	resp := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/content/notifications-push?type=Audio", nil)
-	req = req.WithContext(ctx)
-	req.Header.Set(APIKeyHeaderField, "some-key")
-
-	r := mux.NewRouter()
-	handler.RegisterHandlers(r)
-
-	r.ServeHTTP(resp, req)
-
-	assertHeaders(t, resp.Header())
-
-	reader := bufio.NewReader(resp.Body)
-	body, _ := reader.ReadString(byte(0))
-
-	assert.Equal(t, "data: []\n\n", body)
-
-	assert.Equal(t, http.StatusOK, resp.Code, "Should be OK")
 	d.AssertExpectations(t)
 	v.AssertExpectations(t)
 }

@@ -18,6 +18,7 @@ import (
 	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 	"github.com/Financial-Times/notifications-push/v4/resources"
+	"github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
 	"github.com/samuel/go-zookeeper/zk"
@@ -203,13 +204,14 @@ func main() {
 		apiGatewayHealthcheckURL = apiGatewayHealthcheckURL.ResolveReference(r)
 
 		hc := resources.NewHealthCheck(messageConsumer, apiGatewayHealthcheckURL.String(), &resources.HTTPClient{})
-
 		apiGatewayKeyValidationURL := fmt.Sprintf("%s/%s", *apiBaseURL, *apiKeyValidationEndpoint)
 
 		keyValidator := resources.NewKeyValidator(apiGatewayKeyValidationURL, httpClient, logV2)
-		subHandler := resources.NewSubHandler(dispatcher, keyValidator, heartbeatPeriod, *resource, logV2)
+		subHandler := resources.NewSubHandler(dispatcher, keyValidator, heartbeatPeriod, logV2)
 
-		go server(":"+strconv.Itoa(*port), subHandler, dispatcher, history, hc)
+		router := mux.NewRouter()
+		initRouter(router, subHandler, *resource, dispatcher, history, hc)
+		go startServer(":"+strconv.Itoa(*port), router)
 
 		ctWhitelist := queueConsumer.NewSet()
 		for _, value := range *contentTypeWhitelist {
@@ -227,23 +229,29 @@ func main() {
 	}
 }
 
-func server(
-	addr string,
+func initRouter(r *mux.Router,
 	s *resources.SubHandler,
-	dispatcher *dispatch.Dispatcher,
-	history dispatch.History,
-	hc *resources.HealthCheck,
-) {
-	r := mux.NewRouter()
+	resource string,
+	d *dispatch.Dispatcher,
+	h dispatch.History,
+	hc *resources.HealthCheck) {
 
-	s.RegisterHandlers(r)
-	hc.RegisterHandlers(r)
+	r.HandleFunc("/"+resource+"/notifications-push", s.HandleSubscription).Methods("GET")
 
-	r.HandleFunc("/__stats", resources.Stats(dispatcher)).Methods("GET")
-	r.HandleFunc("/__history", resources.History(history)).Methods("GET")
+	r.HandleFunc("/__health", hc.Health())
+	r.HandleFunc(httphandlers.GTGPath, httphandlers.NewGoodToGoHandler(hc.GTG))
+	r.HandleFunc(httphandlers.BuildInfoPath, httphandlers.BuildInfoHandler)
+	r.HandleFunc(httphandlers.PingPath, httphandlers.PingHandler)
+
+	r.HandleFunc("/__stats", resources.Stats(d)).Methods("GET")
+	r.HandleFunc("/__history", resources.History(h)).Methods("GET")
+
+}
+
+func startServer(addr string, r *mux.Router) {
 
 	err := http.ListenAndServe(addr, r)
-	if err != nil {
+	if err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
 }
