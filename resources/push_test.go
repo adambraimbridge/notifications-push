@@ -66,7 +66,11 @@ func TestSubscription(t *testing.T) {
 
 	v := &mocks.KeyValidator{}
 	d := &mocks.Dispatcher{}
-	handler := NewSubHandler(d, v, heartbeat, l)
+	r := mocks.NewShutdownReg()
+	r.On("RegisterOnShutdown", mock.Anything).Return()
+	defer r.Shutdown()
+
+	handler := NewSubHandler(d, v, r, heartbeat, l)
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -139,8 +143,11 @@ func TestPassKeyAsParameter(t *testing.T) {
 		}()
 	}).Return(sub)
 	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
+	r := mocks.NewShutdownReg()
+	r.On("RegisterOnShutdown", mock.Anything).Return()
+	defer r.Shutdown()
 
-	handler := NewSubHandler(d, v, heartbeat, l)
+	handler := NewSubHandler(d, v, r, heartbeat, l)
 
 	handler.HandleSubscription(resp, req)
 
@@ -167,8 +174,9 @@ func TestInvalidKey(t *testing.T) {
 	v.On("Validate", mock.Anything, keyAPI).Return(NewKeyErr("failed key", http.StatusForbidden, ""))
 
 	d := &mocks.Dispatcher{}
+	r := mocks.NewShutdownReg()
 
-	handler := NewSubHandler(d, v, heartbeat, l)
+	handler := NewSubHandler(d, v, r, heartbeat, l)
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/content/notifications-push", nil)
@@ -201,8 +209,11 @@ func TestHeartbeat(t *testing.T) {
 	d := &mocks.Dispatcher{}
 	d.On("Subscribe", subAddress, defaultSubscriptionType, false).Return(sub)
 	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
+	r := mocks.NewShutdownReg()
+	r.On("RegisterOnShutdown", mock.Anything).Return()
+	defer r.Shutdown()
 
-	handler := NewSubHandler(d, v, heartbeat, l)
+	handler := NewSubHandler(d, v, r, heartbeat, l)
 
 	req, _ := http.NewRequest(http.MethodGet, "/content/notifications-push", nil)
 	req = req.WithContext(ctx)
@@ -269,8 +280,11 @@ func TestPushNotificationDelay(t *testing.T) {
 		}()
 	}).Return(sub)
 	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
+	r := mocks.NewShutdownReg()
+	r.On("RegisterOnShutdown", mock.Anything).Return()
+	defer r.Shutdown()
 
-	handler := NewSubHandler(d, v, heartbeat, l)
+	handler := NewSubHandler(d, v, r, heartbeat, l)
 
 	req, _ := http.NewRequest(http.MethodGet, "/content/notifications-push", nil)
 	req = req.WithContext(ctx)

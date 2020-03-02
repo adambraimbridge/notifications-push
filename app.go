@@ -1,28 +1,20 @@
 package main
 
 import (
-	"fmt"
-	"io/ioutil"
-	stdlog "log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	log "github.com/Financial-Times/go-logger"
 	logger "github.com/Financial-Times/go-logger/v2"
-	"github.com/Financial-Times/kafka-client-go/kafka"
-	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
 	"github.com/Financial-Times/notifications-push/v4/resources"
-	"github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
-	"github.com/samuel/go-zookeeper/zk"
-	kazoo "github.com/wvanbergen/kazoo-go"
 )
 
 const (
@@ -138,30 +130,15 @@ func main() {
 			"KAFKA_ADDRS":    *consumerAddrs,
 		}).Infof("[Startup] notifications-push is starting ")
 
-		errCh := make(chan error, 2)
-		defer close(errCh)
-		var fatalErrs = []error{kazoo.ErrPartitionNotClaimed, zk.ErrNoServer}
-		fatalErrHandler := func(err error, serviceName string) {
-			logV2.WithError(err).Fatalf("Exiting %s due to fatal error", serviceName)
-		}
-
-		supervisor := newServiceSupervisor(serviceName, errCh, fatalErrs, fatalErrHandler)
-		go supervisor.Supervise()
-
-		consumerConfig := kafka.DefaultConsumerConfig()
-		consumerConfig.Zookeeper.Logger = stdlog.New(ioutil.Discard, "", 0)
-		messageConsumer, err := kafka.NewConsumer(kafka.Config{
-			ZookeeperConnectionString: *consumerAddrs,
-			ConsumerGroup:             *consumerGroupID,
-			Topics: []string{
+		kafkaConsumer, err := createSupervisedConsumer(logV2,
+			*consumerAddrs,
+			*consumerGroupID,
+			[]string{
 				*contentTopic,
 				*metadataTopic,
-			},
-			ConsumerGroupConfig: consumerConfig,
-			Err:                 errCh,
-		})
+			})
 		if err != nil {
-			logV2.WithError(err).Fatal("Cannot create Kafka client")
+			logV2.WithError(err).Fatal("could not start kafka consumer")
 		}
 
 		httpClient := &http.Client{
@@ -177,89 +154,63 @@ func main() {
 			},
 		}
 
-		history := dispatch.NewHistory(*historySize)
-		dispatcher := dispatch.NewDispatcher(time.Duration(*delay)*time.Second, history)
-
-		mapper := queueConsumer.NotificationMapper{
-			Resource:   *resource,
-			APIBaseURL: *apiBaseURL,
-			Property:   &conceptTimeReader{},
+		router := mux.NewRouter()
+		srv := &http.Server{
+			Addr:    ":" + strconv.Itoa(*port),
+			Handler: router,
 		}
 
-		whitelistR, err := regexp.Compile(*contentURIWhitelist)
-		if err != nil {
-			logV2.WithError(err).Fatal("Whitelist regex MUST compile!")
-		}
-
-		apiGatewayHealthcheckURL, err := url.Parse(*apiBaseURL)
+		baseURL, err := url.Parse(*apiBaseURL)
 		if err != nil {
 			logV2.WithError(err).Fatal("cannot parse api_base_url")
 		}
 
-		r, err := url.Parse(*apiGatewayHealthcheckEndpoint)
+		healthCheckEndpoint, err := url.Parse(*apiGatewayHealthcheckEndpoint)
 		if err != nil {
 			logV2.WithError(err).Fatal("cannot parse api_healthcheck_endpoint")
 		}
 
-		apiGatewayHealthcheckURL = apiGatewayHealthcheckURL.ResolveReference(r)
+		healthCheckEndpoint = baseURL.ResolveReference(healthCheckEndpoint)
+		hc := resources.NewHealthCheck(kafkaConsumer, healthCheckEndpoint.String(), &resources.HTTPClient{})
 
-		hc := resources.NewHealthCheck(messageConsumer, apiGatewayHealthcheckURL.String(), &resources.HTTPClient{})
-		apiGatewayKeyValidationURL := fmt.Sprintf("%s/%s", *apiBaseURL, *apiKeyValidationEndpoint)
+		dispatcher, history := createDispatcher(*delay, *historySize)
 
-		keyValidator := resources.NewKeyValidator(apiGatewayKeyValidationURL, httpClient, logV2)
-		subHandler := resources.NewSubHandler(dispatcher, keyValidator, heartbeatPeriod, logV2)
-
-		router := mux.NewRouter()
-		initRouter(router, subHandler, *resource, dispatcher, history, hc)
-		go startServer(":"+strconv.Itoa(*port), router)
-
-		ctWhitelist := queueConsumer.NewSet()
-		for _, value := range *contentTypeWhitelist {
-			ctWhitelist.Add(value)
+		msgConfig := msgHandlerCfg{
+			Resource:        *resource,
+			BaseURL:         *apiBaseURL,
+			ContentURI:      *contentURIWhitelist,
+			ContentTypes:    *contentTypeWhitelist,
+			MetadataHeaders: *whitelistedMetadataOriginSystemHeaders,
 		}
-		contentHandler := queueConsumer.NewContentQueueHandler(whitelistR, ctWhitelist, mapper, dispatcher)
-		metadataHandler := queueConsumer.NewMetadataQueueHandler(*whitelistedMetadataOriginSystemHeaders, mapper, dispatcher)
-		queueHandler := queueConsumer.NewMessageQueueHandler(contentHandler, metadataHandler)
-		pushService := newPushService(dispatcher, messageConsumer)
-		pushService.start(queueHandler)
+
+		queueHandler, err := createMessageHandler(msgConfig, dispatcher)
+		if err != nil {
+			logV2.WithError(err).Fatal("could not start notification consumer")
+		}
+
+		keyValidateURL, err := url.Parse(*apiKeyValidationEndpoint)
+		if err != nil {
+			logV2.WithError(err).Fatal("cannot parse api_key_validation_endpoint")
+		}
+		keyValidateURL = baseURL.ResolveReference(keyValidateURL)
+		keyValidator := resources.NewKeyValidator(keyValidateURL.String(), httpClient, logV2)
+		subHandler := resources.NewSubHandler(dispatcher, keyValidator, srv, heartbeatPeriod, logV2)
+		if err != nil {
+			logV2.WithError(err).Fatal("Could not create request handler")
+		}
+
+		initRouter(router, subHandler, *resource, dispatcher, history, hc)
+
+		shutdown := startService(srv, dispatcher, kafkaConsumer, queueHandler)
+
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+		<-ch
+
+		shutdown(time.Second * 30)
 	}
 
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func initRouter(r *mux.Router,
-	s *resources.SubHandler,
-	resource string,
-	d *dispatch.Dispatcher,
-	h dispatch.History,
-	hc *resources.HealthCheck) {
-
-	r.HandleFunc("/"+resource+"/notifications-push", s.HandleSubscription).Methods("GET")
-
-	r.HandleFunc("/__health", hc.Health())
-	r.HandleFunc(httphandlers.GTGPath, httphandlers.NewGoodToGoHandler(hc.GTG))
-	r.HandleFunc(httphandlers.BuildInfoPath, httphandlers.BuildInfoHandler)
-	r.HandleFunc(httphandlers.PingPath, httphandlers.PingHandler)
-
-	r.HandleFunc("/__stats", resources.Stats(d)).Methods("GET")
-	r.HandleFunc("/__history", resources.History(h)).Methods("GET")
-
-}
-
-func startServer(addr string, r *mux.Router) {
-
-	err := http.ListenAndServe(addr, r)
-	if err != http.ErrServerClosed {
-		log.Fatal(err)
-	}
-}
-
-type conceptTimeReader struct{}
-
-func (c *conceptTimeReader) LastModified(event queueConsumer.ConceptAnnotationsEvent) string {
-	// Currently PostConceptAnnotations event is missing LastModified property for annotations.
-	// So we use current time as a substitute.
-	return time.Now().Format(time.RFC3339)
 }

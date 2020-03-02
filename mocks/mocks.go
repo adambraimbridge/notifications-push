@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 	"github.com/stretchr/testify/mock"
@@ -116,4 +117,35 @@ func (c *KafkaConsumer) ConnectivityCheck() error {
 		return c.ConnectivityCheckF()
 	}
 	return errors.New("not implemented")
+}
+
+type ShutdownReg struct {
+	mock.Mock
+	m      *sync.Mutex
+	toCall []func()
+}
+
+func NewShutdownReg() *ShutdownReg {
+	return &ShutdownReg{
+		m:      &sync.Mutex{},
+		toCall: []func(){},
+	}
+}
+
+func (r *ShutdownReg) RegisterOnShutdown(f func()) {
+	r.Called(f)
+	r.m.Lock()
+	r.toCall = append(r.toCall, f)
+	r.m.Unlock()
+}
+
+func (r *ShutdownReg) Shutdown() {
+	r.m.Lock()
+	for _, f := range r.toCall {
+		if f != nil {
+			f()
+		}
+	}
+	r.toCall = nil
+	r.m.Unlock()
 }

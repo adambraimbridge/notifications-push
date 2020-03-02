@@ -40,21 +40,28 @@ type notifier interface {
 	Unsubscribe(subscriber dispatch.Subscriber)
 }
 
+type onShutdown interface {
+	RegisterOnShutdown(f func())
+}
+
 // SubHandler manages subscription requests
 type SubHandler struct {
 	notif           notifier
 	validator       keyValidator
+	shutdown        onShutdown
 	heartbeatPeriod time.Duration
 	log             *logger.UPPLogger
 }
 
 func NewSubHandler(n notifier,
 	validator keyValidator,
+	shutdown onShutdown,
 	heartbeatPeriod time.Duration,
 	log *logger.UPPLogger) *SubHandler {
 	return &SubHandler{
 		notif:           n,
 		validator:       validator,
+		shutdown:        shutdown,
 		heartbeatPeriod: heartbeatPeriod,
 		log:             log,
 	}
@@ -92,7 +99,9 @@ func (h *SubHandler) HandleSubscription(w http.ResponseWriter, r *http.Request) 
 	s := h.notif.Subscribe(getClientAddr(r), subscriptionParam, isMonitor)
 	defer h.notif.Unsubscribe(s)
 
-	h.listenForNotifications(r.Context(), s, w)
+	ctx, cancel := context.WithCancel(r.Context())
+	h.shutdown.RegisterOnShutdown(cancel)
+	h.listenForNotifications(ctx, s, w)
 }
 
 // listenForNotifications starts listening on the subscribes channel for notifications

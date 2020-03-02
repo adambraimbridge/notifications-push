@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+
 	log "github.com/Financial-Times/go-logger"
 	logger "github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
@@ -89,6 +91,9 @@ func TestPushNotifications(t *testing.T) {
 	// mocks
 	queue := &mocks.KafkaConsumer{}
 	statusClient := &mocks.StatusCodeClient{}
+	reg := mocks.NewShutdownReg()
+	reg.On("RegisterOnShutdown", mock.Anything)
+	defer reg.Shutdown()
 	// dispatcher
 	d, h := startDispatcher(delay, historySize)
 	defer d.Stop()
@@ -105,7 +110,7 @@ func TestPushNotifications(t *testing.T) {
 	hc := resources.NewHealthCheck(queue, apiGatewayGTGURL, statusClient)
 
 	keyValidator := resources.NewKeyValidator(server.URL+apiGatewayURL, http.DefaultClient, l)
-	s := resources.NewSubHandler(d, keyValidator, heartbeat, l)
+	s := resources.NewSubHandler(d, keyValidator, reg, heartbeat, l)
 
 	initRouter(router, s, resource, d, h, hc)
 
@@ -123,6 +128,7 @@ func TestPushNotifications(t *testing.T) {
 	testClientWithNotifications(ctx, t, server.URL, "Article", expectedArticleNotificationBody)
 	testClientWithNotifications(ctx, t, server.URL, "All", expectedArticleNotificationBody)
 	testClientWithNotifications(ctx, t, server.URL, "Annotations", expectedPACNotificationBody)
+	reg.AssertNumberOfCalls(t, "RegisterOnShutdown", 4)
 
 	// message producer
 	go func() {
