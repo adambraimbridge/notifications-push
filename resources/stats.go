@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	log "github.com/Financial-Times/go-logger"
-
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
@@ -19,7 +18,7 @@ type clientsProvider interface {
 }
 
 // Stats returns subscriber stats
-func Stats(provider clientsProvider) func(w http.ResponseWriter, r *http.Request) {
+func Stats(provider clientsProvider, log *logger.UPPLogger) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		subscribers := provider.Subscribers()
 

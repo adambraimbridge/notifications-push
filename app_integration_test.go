@@ -112,7 +112,7 @@ func TestPushNotifications(t *testing.T) {
 	keyValidator := resources.NewKeyValidator(server.URL+apiGatewayURL, http.DefaultClient, l)
 	s := resources.NewSubHandler(d, keyValidator, reg, heartbeat, l)
 
-	initRouter(router, s, resource, d, h, hc)
+	initRouter(router, s, resource, d, h, hc, l)
 
 	// key validation
 	router.HandleFunc(apiGatewayURL, func(resp http.ResponseWriter, req *http.Request) {

@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"time"
 
-	log "github.com/Financial-Times/go-logger"
+	logV1 "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
@@ -26,7 +26,7 @@ type notificationSystem interface {
 	Stop()
 }
 
-func startService(srv *http.Server, n notificationSystem, consumer kafka.Consumer, msgHandler queueConsumer.MessageQueueHandler) func(time.Duration) {
+func startService(srv *http.Server, n notificationSystem, consumer kafka.Consumer, msgHandler queueConsumer.MessageQueueHandler, log *logger.UPPLogger) func(time.Duration) {
 
 	go n.Start()
 
@@ -48,13 +48,19 @@ func startService(srv *http.Server, n notificationSystem, consumer kafka.Consume
 		n.Stop()
 	}
 }
+func initLogger(serviceName string, logLevel string) *logger.UPPLogger {
+	// while transitioning to logger V2 we need to initialize the global V1 logger too
+	logV1.InitLogger(serviceName, logLevel)
 
+	return logger.NewUPPLogger(serviceName, logLevel)
+}
 func initRouter(r *mux.Router,
 	s *resources.SubHandler,
 	resource string,
 	d *dispatch.Dispatcher,
 	h dispatch.History,
-	hc *resources.HealthCheck) {
+	hc *resources.HealthCheck,
+	log *logger.UPPLogger) {
 
 	r.HandleFunc("/"+resource+"/notifications-push", s.HandleSubscription).Methods("GET")
 
@@ -63,8 +69,8 @@ func initRouter(r *mux.Router,
 	r.HandleFunc(httphandlers.BuildInfoPath, httphandlers.BuildInfoHandler)
 	r.HandleFunc(httphandlers.PingPath, httphandlers.PingHandler)
 
-	r.HandleFunc("/__stats", resources.Stats(d)).Methods("GET")
-	r.HandleFunc("/__history", resources.History(h)).Methods("GET")
+	r.HandleFunc("/__stats", resources.Stats(d, log)).Methods("GET")
+	r.HandleFunc("/__history", resources.History(h, log)).Methods("GET")
 
 }
 

@@ -10,8 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	log "github.com/Financial-Times/go-logger"
-	logger "github.com/Financial-Times/go-logger/v2"
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/notifications-push/v4/resources"
 	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
@@ -118,19 +117,20 @@ func main() {
 		EnvVar: "LOG_LEVEL",
 	})
 
+	log := logger.NewUnstructuredLogger()
+
 	app.Action = func() {
 
-		log.InitLogger(serviceName, *logLevel)
+		log = initLogger(serviceName, *logLevel)
 
-		logV2 := logger.NewUPPLogger(serviceName, *logLevel)
-		logV2.WithFields(map[string]interface{}{
+		log.WithFields(map[string]interface{}{
 			"CONTENT_TOPIC":  *contentTopic,
 			"METADATA_TOPIC": *metadataTopic,
 			"GROUP_ID":       *consumerGroupID,
 			"KAFKA_ADDRS":    *consumerAddrs,
 		}).Infof("[Startup] notifications-push is starting ")
 
-		kafkaConsumer, err := createSupervisedConsumer(logV2,
+		kafkaConsumer, err := createSupervisedConsumer(log,
 			*consumerAddrs,
 			*consumerGroupID,
 			[]string{
@@ -138,7 +138,7 @@ func main() {
 				*metadataTopic,
 			})
 		if err != nil {
-			logV2.WithError(err).Fatal("could not start kafka consumer")
+			log.WithError(err).Fatal("could not start kafka consumer")
 		}
 
 		httpClient := &http.Client{
@@ -162,12 +162,12 @@ func main() {
 
 		baseURL, err := url.Parse(*apiBaseURL)
 		if err != nil {
-			logV2.WithError(err).Fatal("cannot parse api_base_url")
+			log.WithError(err).Fatal("cannot parse api_base_url")
 		}
 
 		healthCheckEndpoint, err := url.Parse(*apiGatewayHealthcheckEndpoint)
 		if err != nil {
-			logV2.WithError(err).Fatal("cannot parse api_healthcheck_endpoint")
+			log.WithError(err).Fatal("cannot parse api_healthcheck_endpoint")
 		}
 
 		healthCheckEndpoint = baseURL.ResolveReference(healthCheckEndpoint)
@@ -185,23 +185,23 @@ func main() {
 
 		queueHandler, err := createMessageHandler(msgConfig, dispatcher)
 		if err != nil {
-			logV2.WithError(err).Fatal("could not start notification consumer")
+			log.WithError(err).Fatal("could not start notification consumer")
 		}
 
 		keyValidateURL, err := url.Parse(*apiKeyValidationEndpoint)
 		if err != nil {
-			logV2.WithError(err).Fatal("cannot parse api_key_validation_endpoint")
+			log.WithError(err).Fatal("cannot parse api_key_validation_endpoint")
 		}
 		keyValidateURL = baseURL.ResolveReference(keyValidateURL)
-		keyValidator := resources.NewKeyValidator(keyValidateURL.String(), httpClient, logV2)
-		subHandler := resources.NewSubHandler(dispatcher, keyValidator, srv, heartbeatPeriod, logV2)
+		keyValidator := resources.NewKeyValidator(keyValidateURL.String(), httpClient, log)
+		subHandler := resources.NewSubHandler(dispatcher, keyValidator, srv, heartbeatPeriod, log)
 		if err != nil {
-			logV2.WithError(err).Fatal("Could not create request handler")
+			log.WithError(err).Fatal("Could not create request handler")
 		}
 
-		initRouter(router, subHandler, *resource, dispatcher, history, hc)
+		initRouter(router, subHandler, *resource, dispatcher, history, hc, log)
 
-		shutdown := startService(srv, dispatcher, kafkaConsumer, queueHandler)
+		shutdown := startService(srv, dispatcher, kafkaConsumer, queueHandler, log)
 
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
