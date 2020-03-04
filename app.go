@@ -6,7 +6,6 @@ import (
 	stdlog "log"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"regexp"
@@ -14,11 +13,11 @@ import (
 	"time"
 
 	log "github.com/Financial-Times/go-logger"
+	logger "github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 	"github.com/Financial-Times/notifications-push/v4/resources"
-	"github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
 	"github.com/samuel/go-zookeeper/zk"
@@ -114,19 +113,22 @@ func main() {
 		EnvVar: "LOG_LEVEL",
 	})
 
-	log.InitLogger(serviceName, *logLevel)
-	log.WithFields(map[string]interface{}{
-		"KAFKA_TOPIC": *topic,
-		"GROUP_ID":    *consumerGroupID,
-		"KAFKA_ADDRS": *consumerAddrs,
-	}).Infof("[Startup] notifications-push is starting ")
-
 	app.Action = func() {
+
+		log.InitLogger(serviceName, *logLevel)
+
+		logV2 := logger.NewUPPLogger(serviceName, *logLevel)
+		logV2.WithFields(map[string]interface{}{
+			"KAFKA_TOPIC": *topic,
+			"GROUP_ID":    *consumerGroupID,
+			"KAFKA_ADDRS": *consumerAddrs,
+		}).Infof("[Startup] notifications-push is starting ")
+
 		errCh := make(chan error, 2)
 		defer close(errCh)
 		var fatalErrs = []error{kazoo.ErrPartitionNotClaimed, zk.ErrNoServer}
 		fatalErrHandler := func(err error, serviceName string) {
-			log.WithError(err).Fatalf("Exiting %s due to fatal error", serviceName)
+			logV2.WithError(err).Fatalf("Exiting %s due to fatal error", serviceName)
 		}
 
 		supervisor := newServiceSupervisor(serviceName, errCh, fatalErrs, fatalErrHandler)
@@ -142,7 +144,7 @@ func main() {
 			Err:                       errCh,
 		})
 		if err != nil {
-			log.WithError(err).Fatal("Cannot create Kafka client")
+			logV2.WithError(err).Fatal("Cannot create Kafka client")
 		}
 
 		httpClient := &http.Client{
@@ -159,7 +161,7 @@ func main() {
 		}
 
 		history := dispatch.NewHistory(*historySize)
-		dispatcher := dispatch.NewDispatcher(time.Duration(*delay)*time.Second, heartbeatPeriod, history)
+		dispatcher := dispatch.NewDispatcher(time.Duration(*delay)*time.Second, history)
 
 		mapper := queueConsumer.NotificationMapper{
 			Resource:   *resource,
@@ -168,17 +170,17 @@ func main() {
 
 		whitelistR, err := regexp.Compile(*contentURIWhitelist)
 		if err != nil {
-			log.WithError(err).Fatal("Whitelist regex MUST compile!")
+			logV2.WithError(err).Fatal("Whitelist regex MUST compile!")
 		}
 
 		apiGatewayHealthcheckURL, err := url.Parse(*apiBaseURL)
 		if err != nil {
-			log.WithError(err).Fatal("cannot parse api_base_url")
+			logV2.WithError(err).Fatal("cannot parse api_base_url")
 		}
 
 		r, err := url.Parse(*apiGatewayHealthcheckEndpoint)
 		if err != nil {
-			log.WithError(err).Fatal("cannot parse api_healthcheck_endpoint")
+			logV2.WithError(err).Fatal("cannot parse api_healthcheck_endpoint")
 		}
 
 		apiGatewayHealthcheckURL = apiGatewayHealthcheckURL.ResolveReference(r)
@@ -187,7 +189,10 @@ func main() {
 
 		apiGatewayKeyValidationURL := fmt.Sprintf("%s/%s", *apiBaseURL, *apiKeyValidationEndpoint)
 
-		go server(":"+strconv.Itoa(*port), *resource, dispatcher, history, messageConsumer, apiGatewayKeyValidationURL, httpClient, hc)
+		keyValidator := resources.NewKeyValidator(apiGatewayKeyValidationURL, httpClient, logV2)
+		subHandler := resources.NewSubHandler(dispatcher, keyValidator, heartbeatPeriod, *resource, logV2)
+
+		go server(":"+strconv.Itoa(*port), subHandler, dispatcher, history, hc)
 
 		ctWhitelist := queueConsumer.NewSet()
 		for _, value := range *contentTypeWhitelist {
@@ -203,22 +208,23 @@ func main() {
 	}
 }
 
-func server(listen string, resource string, dispatcher dispatch.Dispatcher, history dispatch.History, consumer kafka.Consumer, apiGatewayKeyValidationURL string, httpClient *http.Client, hc *resources.HealthCheck) {
-	notificationsPushPath := "/" + resource + "/notifications-push"
-
+func server(
+	addr string,
+	s *resources.SubHandler,
+	dispatcher dispatch.Registrar,
+	history dispatch.History,
+	hc *resources.HealthCheck,
+) {
 	r := mux.NewRouter()
 
-	r.HandleFunc(notificationsPushPath, resources.Push(dispatcher, apiGatewayKeyValidationURL, httpClient)).Methods("GET")
-	r.HandleFunc("/__history", resources.History(history)).Methods("GET")
+	s.RegisterHandlers(r)
+	hc.RegisterHandlers(r)
+
 	r.HandleFunc("/__stats", resources.Stats(dispatcher)).Methods("GET")
+	r.HandleFunc("/__history", resources.History(history)).Methods("GET")
 
-	r.HandleFunc("/__health", hc.Health())
-	r.HandleFunc(httphandlers.GTGPath, httphandlers.NewGoodToGoHandler(hc.GTG))
-	r.HandleFunc(httphandlers.BuildInfoPath, httphandlers.BuildInfoHandler)
-	r.HandleFunc(httphandlers.PingPath, httphandlers.PingHandler)
-
-	http.Handle("/", r)
-
-	err := http.ListenAndServe(listen, nil)
-	log.Fatal(err)
+	err := http.ListenAndServe(addr, r)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

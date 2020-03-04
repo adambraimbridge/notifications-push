@@ -1,84 +1,121 @@
 package resources
 
 import (
+	"context"
 	"encoding/json"
-	log "github.com/Financial-Times/go-logger"
 	"io"
 	"io/ioutil"
 	"net/http"
+
+	logger "github.com/Financial-Times/go-logger/v2"
 )
 
-func isValidApiKey(providedApiKey string, apiGatewayKeyValidationURL string, httpClient *http.Client) (bool, string, int) {
-	if providedApiKey == "" {
-		return false, "Empty api key", http.StatusUnauthorized
+const APIKeyHeaderField = "X-Api-Key"
+const suffixLen = 10
+
+type KeyValidator struct {
+	APIGatewayURL string
+	client        *http.Client
+	log           *logger.UPPLogger
+}
+
+func NewKeyValidator(url string, client *http.Client, log *logger.UPPLogger) *KeyValidator {
+	return &KeyValidator{
+		APIGatewayURL: url,
+		client:        client,
+		log:           log,
+	}
+}
+
+type KeyErr struct {
+	Msg       string
+	Status    int
+	KeySuffix string
+}
+
+func (e *KeyErr) Error() string {
+	return e.Msg
+}
+
+func NewKeyErr(msg string, status int, key string) *KeyErr {
+	return &KeyErr{
+		Msg:       msg,
+		Status:    status,
+		KeySuffix: key,
+	}
+}
+
+func (v *KeyValidator) Validate(ctx context.Context, key string) error {
+
+	if key == "" {
+		return NewKeyErr("Empty api key", http.StatusUnauthorized, "")
 	}
 
-	req, err := http.NewRequest("GET", apiGatewayKeyValidationURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", v.APIGatewayURL, nil)
 	if err != nil {
-		log.WithField("url", apiGatewayKeyValidationURL).WithError(err).Error("Invalid URL for api key validation")
-		return false, "Invalid URL", http.StatusInternalServerError
+		v.log.WithField("url", v.APIGatewayURL).WithError(err).Error("Invalid URL for api key validation")
+		return NewKeyErr("Invalid URL", http.StatusInternalServerError, "")
 	}
 
-	req.Header.Set(apiKeyHeaderField, providedApiKey)
+	req.Header.Set(APIKeyHeaderField, key)
 
 	//if the api key has more than five characters we want to log the last five
 	keySuffix := ""
-	if len(providedApiKey) > 5 {
-		keySuffix = providedApiKey[len(providedApiKey)-5:]
+	if len(key) > suffixLen {
+		keySuffix = key[len(key)-suffixLen:]
 	}
-	log.WithField("url", req.URL.String()).WithField("apiKeyLastChars", keySuffix).Info("Calling the API Gateway to validate api key")
+	v.log.WithField("url", req.URL.String()).WithField("apiKeyLastChars", keySuffix).Info("Calling the API Gateway to validate api key")
 
-	resp, err := httpClient.Do(req)
+	resp, err := v.client.Do(req) //nolint:bodyclose
 	if err != nil {
-		log.WithField("url", req.URL.String()).WithField("apiKeyLastChars", keySuffix).WithError(err).Error("Cannot send request to the API Gateway")
-		return false, "Request to validate api key failed", http.StatusInternalServerError
+		v.log.WithField("url", req.URL.String()).WithField("apiKeyLastChars", keySuffix).WithError(err).Error("Cannot send request to the API Gateway")
+		return NewKeyErr("Request to validate api key failed", http.StatusInternalServerError, keySuffix)
 	}
 	defer func() {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 	}()
 
-	respStatusCode := resp.StatusCode
-	if respStatusCode == http.StatusOK {
-		return true, "", 0
+	if resp.StatusCode != http.StatusOK {
+		return v.logFailedRequest(resp, keySuffix)
 	}
 
-	responseBody := getResponseBody(resp, keySuffix)
-
-	if respStatusCode == http.StatusUnauthorized {
-		log.WithField("apiKeyLastChars", keySuffix).Errorf("Invalid api key: %v", responseBody)
-		return false, "Invalid api key", http.StatusUnauthorized
-	}
-
-	if respStatusCode == http.StatusTooManyRequests {
-		log.WithField("apiKeyLastChars", keySuffix).Errorf("API key rate limit exceeded: %v", responseBody)
-		return false, "Rate limit exceeded", http.StatusTooManyRequests
-	}
-
-	if respStatusCode == http.StatusForbidden {
-		log.WithField("apiKeyLastChars", keySuffix).Errorf("Operation forbidden: %v", responseBody)
-		return false, "Operation forbidden", http.StatusForbidden
-	}
-
-	log.WithField("url", req.URL.String()).WithField("apiKeyLastChars", keySuffix).Errorf("Received unexpected status code from the API Gateway: %d, error message: %v", respStatusCode, responseBody)
-	return false, "Request to validate api key returned an unexpected response", respStatusCode
+	return nil
 }
 
-func getResponseBody(resp *http.Response, keySuffix string) string {
+func (v *KeyValidator) logFailedRequest(resp *http.Response, keySuffix string) *KeyErr {
+
 	type ApiMessage struct {
 		Error string `json:"error"`
 	}
 	msg := ApiMessage{}
-	responseBodyBytes, err := ioutil.ReadAll(resp.Body)
+	responseBody := ""
+	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.WithField("apiKeyLastChars", keySuffix).Warnf("Getting API Gateway response body failed: %v", err)
-		return ""
+		v.log.WithField("apiKeyLastChars", keySuffix).WithError(err).Warnf("Getting API Gateway response body failed")
+	} else {
+
+		err = json.Unmarshal(data, &msg)
+		if err != nil {
+			v.log.WithField("apiKeyLastChars", keySuffix).Warnf("Decoding API Gateway response body as json failed: %v", err)
+			responseBody = string(data[:])
+		}
+	}
+	errMsg := ""
+	switch resp.StatusCode {
+	case http.StatusUnauthorized:
+		v.log.WithField("apiKeyLastChars", keySuffix).Errorf("Invalid api key: %v", responseBody)
+		errMsg = "Invalid api key"
+	case http.StatusTooManyRequests:
+		v.log.WithField("apiKeyLastChars", keySuffix).Errorf("API key rate limit exceeded: %v", responseBody)
+		errMsg = "Rate limit exceeded"
+	case http.StatusForbidden:
+		v.log.WithField("apiKeyLastChars", keySuffix).Errorf("Operation forbidden: %v", responseBody)
+		errMsg = "Operation forbidden"
+	default:
+		v.log.WithField("apiKeyLastChars", keySuffix).Errorf("Received unexpected status code from the API Gateway: %d, error message: %v", resp.StatusCode, responseBody)
+		errMsg = "Request to validate api key returned an unexpected response"
 	}
 
-	err = json.Unmarshal(responseBodyBytes, &msg)
-	if err != nil {
-		log.WithField("apiKeyLastChars", keySuffix).Warnf("Decoding API Gateway response body as json failed: %v", err)
-		return string(responseBodyBytes[:])
-	}
-	return msg.Error
+	return NewKeyErr(errMsg, resp.StatusCode, keySuffix)
 }

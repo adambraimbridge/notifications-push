@@ -1,91 +1,132 @@
-package resources
+package resources_test
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
+	logger "github.com/Financial-Times/go-logger/v2"
+	"github.com/Financial-Times/notifications-push/v4/resources"
 	"github.com/Financial-Times/notifications-push/v4/test/mocks"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIsValidApiKeySuccessful(t *testing.T) {
 	client := mocks.MockHTTPClientWithResponseCode(http.StatusOK)
-	isValid, errMsg, errStatusCode := isValidApiKey("testKey", "http://api.gateway.url", client)
 
-	assert.True(t, isValid)
-	assert.Equal(t, "", errMsg)
-	assert.Equal(t, 0, errStatusCode)
+	l := logger.NewUPPLogger("TEST", "PANIC")
+	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
+
+	assert.NoError(t, v.Validate(context.Background(), "long_testing_key"), "Validate should not fail for valid key")
 }
 
 func TestIsValidApiKeyError(t *testing.T) {
 	client := mocks.ErroringMockHTTPClient()
-	isValid, errMsg, errStatusCode := isValidApiKey("testKey", "http://api.gateway.url", client)
 
-	assert.False(t, isValid)
-	assert.Equal(t, "Request to validate api key failed", errMsg)
-	assert.Equal(t, http.StatusInternalServerError, errStatusCode)
+	l := logger.NewUPPLogger("TEST", "PANIC")
+	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
+
+	err := v.Validate(context.Background(), "long_testing_key")
+	assert.Error(t, err, "Validate should fail for invalid key")
+	keyErr := &resources.KeyErr{}
+	assert.True(t, errors.As(err, &keyErr), "Validate should return KeyErr error")
+	assert.Equal(t, "Request to validate api key failed", keyErr.Msg)
+	assert.Equal(t, http.StatusInternalServerError, keyErr.Status)
 }
 
 func TestIsValidApiKeyEmptyKey(t *testing.T) {
 	client := mocks.ErroringMockHTTPClient()
-	isValid, errMsg, errStatusCode := isValidApiKey("", "http://api.gateway.url", client)
 
-	assert.False(t, isValid)
-	assert.Equal(t, "Empty api key", errMsg)
-	assert.Equal(t, http.StatusUnauthorized, errStatusCode)
+	l := logger.NewUPPLogger("TEST", "PANIC")
+	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
+
+	err := v.Validate(context.Background(), "")
+	assert.Error(t, err, "Validate should fail for invalid key")
+	keyErr := &resources.KeyErr{}
+	assert.True(t, errors.As(err, &keyErr), "Validate should return KeyErr error")
+	assert.Equal(t, "Empty api key", keyErr.Msg)
+	assert.Equal(t, http.StatusUnauthorized, keyErr.Status)
 }
 
 func TestIsValidApiInvalidGatewayURL(t *testing.T) {
 	client := mocks.ErroringMockHTTPClient()
-	isValid, errMsg, errStatusCode := isValidApiKey("testKey", "://api.gateway.url", client)
 
-	assert.False(t, isValid)
-	assert.Equal(t, "Invalid URL", errMsg)
-	assert.Equal(t, http.StatusInternalServerError, errStatusCode)
+	l := logger.NewUPPLogger("TEST", "PANIC")
+	v := resources.NewKeyValidator("://api.gateway.url", client, l)
+
+	err := v.Validate(context.Background(), "long_testing_key")
+	assert.Error(t, err, "Validate should fail for invalid key")
+	keyErr := &resources.KeyErr{}
+	assert.True(t, errors.As(err, &keyErr), "Validate should return KeyErr error")
+	assert.Equal(t, "Invalid URL", keyErr.Msg)
+	assert.Equal(t, http.StatusInternalServerError, keyErr.Status)
 }
 
 func TestIsValidApiKeyResponseUnauthorized(t *testing.T) {
 	client := mocks.MockHTTPClientWithResponseCode(http.StatusUnauthorized)
-	isValid, errMsg, errStatusCode := isValidApiKey("testKey", "http://api.gateway.url", client)
+	l := logger.NewUPPLogger("TEST", "PANIC")
+	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
 
-	assert.False(t, isValid)
-	assert.Equal(t, "Invalid api key", errMsg)
-	assert.Equal(t, http.StatusUnauthorized, errStatusCode)
+	err := v.Validate(context.Background(), "long_testing_key")
+	assert.Error(t, err, "Validate should fail for invalid key")
+	keyErr := &resources.KeyErr{}
+	assert.True(t, errors.As(err, &keyErr), "Validate should return KeyErr error")
+	assert.Equal(t, "Invalid api key", keyErr.Msg)
+	assert.Equal(t, http.StatusUnauthorized, keyErr.Status)
 }
 
 func TestIsValidApiKeyResponseTooManyRequests(t *testing.T) {
 	client := mocks.MockHTTPClientWithResponseCode(http.StatusTooManyRequests)
-	isValid, errMsg, errStatusCode := isValidApiKey("testKey", "http://api.gateway.url", client)
+	l := logger.NewUPPLogger("TEST", "PANIC")
+	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
 
-	assert.False(t, isValid)
-	assert.Equal(t, "Rate limit exceeded", errMsg)
-	assert.Equal(t, http.StatusTooManyRequests, errStatusCode)
+	err := v.Validate(context.Background(), "long_testing_key")
+	assert.Error(t, err, "Validate should fail for invalid key")
+	keyErr := &resources.KeyErr{}
+	assert.True(t, errors.As(err, &keyErr), "Validate should return KeyErr error")
+	assert.Equal(t, "Rate limit exceeded", keyErr.Msg)
+	assert.Equal(t, http.StatusTooManyRequests, keyErr.Status)
 }
 
 func TestIsValidApiKeyResponseForbidden(t *testing.T) {
 	client := mocks.MockHTTPClientWithResponseCode(http.StatusForbidden)
-	isValid, errMsg, errStatusCode := isValidApiKey("testKey", "http://api.gateway.url", client)
+	l := logger.NewUPPLogger("TEST", "PANIC")
+	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
 
-	assert.False(t, isValid)
-	assert.Equal(t, "Operation forbidden", errMsg)
-	assert.Equal(t, http.StatusForbidden, errStatusCode)
+	err := v.Validate(context.Background(), "long_testing_key")
+	assert.Error(t, err, "Validate should fail for invalid key")
+	keyErr := &resources.KeyErr{}
+	assert.True(t, errors.As(err, &keyErr), "Validate should return KeyErr error")
+	assert.Equal(t, "Operation forbidden", keyErr.Msg)
+	assert.Equal(t, http.StatusForbidden, keyErr.Status)
 }
 
 func TestIsValidApiKeyResponseInternalServerError(t *testing.T) {
-	client := mocks.MockHTTPClientWithResponseCode(http.StatusInternalServerError)
-	isValid, errMsg, errStatusCode := isValidApiKey("testKey", "http://api.gateway.url", client)
 
-	assert.False(t, isValid)
-	assert.Equal(t, "Request to validate api key returned an unexpected response", errMsg)
-	assert.Equal(t, http.StatusInternalServerError, errStatusCode)
+	client := mocks.MockHTTPClientWithResponseCode(http.StatusInternalServerError)
+	l := logger.NewUPPLogger("TEST", "PANIC")
+	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
+
+	err := v.Validate(context.Background(), "long_testing_key")
+	assert.Error(t, err, "Validate should fail for invalid key")
+	keyErr := &resources.KeyErr{}
+	assert.True(t, errors.As(err, &keyErr), "Validate should return KeyErr error")
+	assert.Equal(t, "Request to validate api key returned an unexpected response", keyErr.Msg)
+	assert.Equal(t, http.StatusInternalServerError, keyErr.Status)
+
 }
 
 func TestIsValidApiKeyResponseOtherServerError(t *testing.T) {
-	client := mocks.MockHTTPClientWithResponseCode(http.StatusGatewayTimeout)
-	isValid, errMsg, errStatusCode := isValidApiKey("testKey", "http://api.gateway.url", client)
 
-	assert.False(t, isValid)
-	assert.Equal(t, "Request to validate api key returned an unexpected response", errMsg)
-	assert.Equal(t, http.StatusGatewayTimeout, errStatusCode)
+	client := mocks.MockHTTPClientWithResponseCode(http.StatusGatewayTimeout)
+	l := logger.NewUPPLogger("TEST", "PANIC")
+	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
+
+	err := v.Validate(context.Background(), "long_testing_key")
+	assert.Error(t, err, "Validate should fail for invalid key")
+	keyErr := &resources.KeyErr{}
+	assert.True(t, errors.As(err, &keyErr), "Validate should return KeyErr error")
+	assert.Equal(t, "Request to validate api key returned an unexpected response", keyErr.Msg)
+	assert.Equal(t, http.StatusGatewayTimeout, keyErr.Status)
 }

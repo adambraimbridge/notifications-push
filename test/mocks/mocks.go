@@ -1,15 +1,28 @@
 package mocks
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
-	"github.com/stretchr/testify/mock"
-
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/stretchr/testify/mock"
 )
+
+type KeyValidator struct {
+	mock.Mock
+}
+
+func (m *KeyValidator) Validate(ctx context.Context, key string) error {
+	args := m.Called(ctx, key)
+
+	if args.Get(0) != nil {
+		return args.Get(0).(error)
+	}
+	return nil
+}
 
 // MockDispatcher is a mock of a dispatcher that can be reused for testing
 type MockDispatcher struct {
@@ -45,6 +58,14 @@ func (m *MockDispatcher) Register(subscriber dispatch.Subscriber) {
 // Close mocks Close
 func (m *MockDispatcher) Close(subscriber dispatch.Subscriber) {
 	m.Called(subscriber)
+}
+
+func (m *MockDispatcher) Subscribe(address string, subType string, monitoring bool) dispatch.Subscriber {
+	args := m.Called(address, subType, monitoring)
+	return args.Get(0).(dispatch.Subscriber)
+}
+func (m *MockDispatcher) Unsubscribe(s dispatch.Subscriber) {
+	m.Called(s)
 }
 
 type MockTransport struct {

@@ -26,10 +26,10 @@ jobs:
           command: go build -mod=readonly -v
       - run:
           name: Run linters
-          command: golangci-lint run --new-from-rev=master --config .golangci.yml
+          command: golangci-lint run --new-from-rev=master --build-tags=integration --config .golangci.yml
       - run:
           name: Run tests
-          command: go test -mod=readonly -race -cover -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out ./... | go-junit-report > ${CIRCLE_TEST_REPORTS}/junit.xml
+          command: go test -mod=readonly -timeout 60s -tags=integration -race -cover -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out ./... | go-junit-report > ${CIRCLE_TEST_REPORTS}/junit.xml
       - run:
           name: Upload coverage
           command: goveralls -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out -service=circle-ci -repotoken=${COVERALLS_TOKEN}
