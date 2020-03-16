@@ -21,7 +21,7 @@ func TestMetadata(t *testing.T) {
 		msg         kafka.FTMessage
 		expectError bool
 	}{
-		"Test fail on ivalid message body": {
+		"Test fail on invalid message body": {
 			msg: kafka.FTMessage{
 				Headers: map[string]string{
 					"X-Request-Id": "tid_test",
