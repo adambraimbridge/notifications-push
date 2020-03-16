@@ -24,7 +24,7 @@ var articleMsg = kafka.NewFTMessage(map[string]string{
 	"Message-Id":        "e9234cdf-0e45-4d87-8276-cbe018bafa60",
 	"Message-Timestamp": "2019-10-02T15:13:26.329Z",
 	"Message-Type":      "cms-content-published",
-	"Origin-System-Id":  "http://cmdb.ft.com/systems/methode-web-pub",
+	"Origin-System-Id":  "http://cmdb.ft.com/systems/cct",
 	"Content-Type":      "application/vnd.ft-upp-article+json",
 	"X-Request-Id":      "test-publish-123",
 }, `{ "payload": { "title": "Lebanon eases dollar flow for importers as crisis grows", "type": "Article", "standout": { "scoop": false } }, "contentUri": "http://methode-article-mapper.svc.ft.com/content/3cc23068-e501-11e9-9743-db5a370481bc", "lastModified": "2019-10-02T15:13:19.52Z" }`)
@@ -47,6 +47,15 @@ var invalidContentTypeMsg = kafka.NewFTMessage(map[string]string{
 	"X-Request-Id":      "test-publish-123",
 }, `{"payload":{"title":"Invalid type message","type":"Article","standout":{"scoop":false}},"contentUri":"invalid type/3cc23068-e501-11e9-9743-db5a370481bc","lastModified":"2019-10-02T15:13:19.52Z"}`)
 
+var annotationMsg = kafka.NewFTMessage(map[string]string{
+	"Message-Id":        "58b55a73-3074-44ed-999f-ea7ff7b48605",
+	"Message-Timestamp": "2019-10-02T15:13:26.329Z",
+	"Message-Type":      "concept-annotation",
+	"Origin-System-Id":  "http://cmdb.ft.com/systems/pac",
+	"Content-Type":      "application/json",
+	"X-Request-Id":      "test-publish-123",
+}, `{"uuid":"4de8b414-c5aa-11e9-a8e9-296ca66511c9","annotations":[{"thing":{"id":"http://www.ft.com/thing/68678217-1d06-4600-9d43-b0e71a333c2a","predicate":"about"}}]}`)
+
 func TestPushNotifications(t *testing.T) {
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
@@ -65,10 +74,12 @@ func TestPushNotifications(t *testing.T) {
 	)
 	// message consumer vars
 	var (
-		uriWhitelist             = `^http://(methode|wordpress-article|content)(-collection|-content-placeholder)?-(mapper|unfolder)(-pr|-iw)?(-uk-.*)?\.svc\.ft\.com(:\d{2,5})?/(content|complementarycontent)/[\w-]+.*$`
-		typeWhitelist            = []string{"application/vnd.ft-upp-article+json", "application/vnd.ft-upp-content-package+json", "application/vnd.ft-upp-audio+json"}
-		expectedNotificationBody = "data: [{\"apiUrl\":\"test-api/content/3cc23068-e501-11e9-9743-db5a370481bc\",\"id\":\"http://www.ft.com/thing/3cc23068-e501-11e9-9743-db5a370481bc\",\"type\":\"http://www.ft.com/thing/ThingChangeType/UPDATE\",\"title\":\"Lebanon eases dollar flow for importers as crisis grows\",\"standout\":{\"scoop\":false}}]\n\n\n"
-		sendDelay                = time.Millisecond * 190
+		uriWhitelist                    = `^http://(methode|wordpress-article|content)(-collection|-content-placeholder)?-(mapper|unfolder)(-pr|-iw)?(-uk-.*)?\.svc\.ft\.com(:\d{2,5})?/(content|complementarycontent)/[\w-]+.*$`
+		typeWhitelist                   = []string{"application/vnd.ft-upp-article+json", "application/vnd.ft-upp-content-package+json", "application/vnd.ft-upp-audio+json"}
+		originWhitelist                 = []string{"http://cmdb.ft.com/systems/pac", "http://cmdb.ft.com/systems/methode-web-pub", "http://cmdb.ft.com/systems/next-video-editor"}
+		expectedArticleNotificationBody = "data: [{\"apiUrl\":\"test-api/content/3cc23068-e501-11e9-9743-db5a370481bc\",\"id\":\"http://www.ft.com/thing/3cc23068-e501-11e9-9743-db5a370481bc\",\"type\":\"http://www.ft.com/thing/ThingChangeType/UPDATE\",\"title\":\"Lebanon eases dollar flow for importers as crisis grows\",\"standout\":{\"scoop\":false}}]\n\n\n"
+		expectedPACNotificationBody     = "data: [{\"apiUrl\":\"test-api/content/4de8b414-c5aa-11e9-a8e9-296ca66511c9\",\"id\":\"http://www.ft.com/thing/4de8b414-c5aa-11e9-a8e9-296ca66511c9\",\"type\":\"http://www.ft.com/thing/ThingChangeType/ANNOTATIONS_UPDATE\"}]\n\n\n"
+		sendDelay                       = time.Millisecond * 190
 	)
 
 	// dispatcher
@@ -76,7 +87,7 @@ func TestPushNotifications(t *testing.T) {
 	defer d.Stop()
 
 	// consumer
-	msgQueue := createMsgQueue(t, uriWhitelist, typeWhitelist, resource, "test-api", d)
+	msgQueue := createMsgQueue(t, uriWhitelist, typeWhitelist, originWhitelist, resource, "test-api", d)
 
 	// server
 	router := mux.NewRouter()
@@ -97,8 +108,9 @@ func TestPushNotifications(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	testClientWithNONotifications(ctx, t, server.URL, heartbeat, "Audio")
-	testClientWithNotifications(ctx, t, server.URL, "Article", expectedNotificationBody)
-	testClientWithNotifications(ctx, t, server.URL, "All", expectedNotificationBody)
+	testClientWithNotifications(ctx, t, server.URL, "Article", expectedArticleNotificationBody)
+	testClientWithNotifications(ctx, t, server.URL, "All", expectedArticleNotificationBody)
+	testClientWithNotifications(ctx, t, server.URL, "Annotations", expectedPACNotificationBody)
 
 	// message producer
 	go func() {
@@ -106,6 +118,7 @@ func TestPushNotifications(t *testing.T) {
 			articleMsg,
 			syntheticMsg,
 			invalidContentTypeMsg,
+			annotationMsg,
 		}
 		for {
 			select {
@@ -219,7 +232,7 @@ func startDispatcher(delay time.Duration, historySize int) dispatch.Dispatcher {
 	return d
 }
 
-func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, resource string, apiURL string, d dispatch.Dispatcher) consumer.MessageQueueHandler {
+func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, originWhitelist []string, resource string, apiURL string, d dispatch.Dispatcher) consumer.MessageQueueHandler {
 	set := consumer.NewSet()
 	for _, value := range typeWhitelist {
 		set.Add(value)
@@ -230,6 +243,10 @@ func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, r
 	mapper := consumer.NotificationMapper{
 		Resource:   resource,
 		APIBaseURL: apiURL,
+		Property:   &conceptTimeReader{},
 	}
-	return consumer.NewContentQueueHandler(reg, set, mapper, d)
+	contentHandler := consumer.NewContentQueueHandler(reg, set, mapper, d)
+	metadataHandler := consumer.NewMetadataQueueHandler(originWhitelist, mapper, d)
+
+	return consumer.NewMessageQueueHandler(contentHandler, metadataHandler)
 }
