@@ -50,6 +50,8 @@ spec:
               fieldPath: metadata.name
         - name: TOPIC
           value: {{ .Values.env.TOPIC }}
+        - name: METADATA_TOPIC
+          value: {{ .Values.env.METADATA_TOPIC }}
         - name: NOTIFICATIONS_DELAY
           valueFrom:
             configMapKeyRef:
@@ -63,6 +65,8 @@ spec:
           value: {{ .Values.env.CONTENT_URI_WHITELIST }}
         - name: CONTENT_TYPE_WHITELIST
           value: {{ .Values.env.CONTENT_TYPE_WHITELIST }}
+        - name: WHITELISTED_METADATA_ORIGIN_SYSTEM_HEADERS
+          value: {{ .Values.env.WHITELISTED_METADATA_ORIGIN_SYSTEM_HEADERS }}
         ports:
         - containerPort: 8080
         livenessProbe:

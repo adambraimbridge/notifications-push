@@ -7,10 +7,15 @@ import (
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
+type PropertyReader interface {
+	LastModified(event ConceptAnnotationsEvent) string
+}
+
 // NotificationMapper maps CmsPublicationEvents to Notifications
 type NotificationMapper struct {
 	APIBaseURL string
 	Resource   string
+	Property   PropertyReader
 }
 
 // UUIDRegexp enables to check if a string matches a UUID
@@ -29,10 +34,10 @@ func (n NotificationMapper) MapNotification(event PublicationEvent, transactionI
 	var contentType = ""
 
 	if event.HasEmptyPayload() {
-		eventType = "DELETE"
+		eventType = dispatch.ContentDeleteType
 		contentType = resolveTypeFromMessageHeader(event.ContentTypeHeader)
 	} else {
-		eventType = "UPDATE"
+		eventType = dispatch.ContentUpdateType
 		notificationPayloadMap, ok := event.Payload.(map[string]interface{})
 		if ok {
 			title = getValueFromPayload("title", notificationPayloadMap)
@@ -42,25 +47,36 @@ func (n NotificationMapper) MapNotification(event PublicationEvent, transactionI
 	}
 
 	return dispatch.Notification{
-		Type:             "http://www.ft.com/thing/ThingChangeType/" + eventType,
+		Type:             eventType,
 		ID:               "http://www.ft.com/thing/" + UUID,
 		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + UUID,
 		PublishReference: transactionID,
 		LastModified:     event.LastModified,
 		Title:            title,
-		Standout:         dispatch.Standout{Scoop: scoop},
-		ContentType:      contentType,
+		Standout:         &dispatch.Standout{Scoop: scoop},
+		SubscriptionType: contentType,
 	}, nil
+}
+
+func (n NotificationMapper) MapMetadataNotification(event ConceptAnnotationsEvent, transactionID string) dispatch.Notification {
+	return dispatch.Notification{
+		Type:             dispatch.AnnotationUpdateType,
+		ID:               "http://www.ft.com/thing/" + event.ContentID,
+		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + event.ContentID,
+		PublishReference: transactionID,
+		SubscriptionType: dispatch.AnnotationsType,
+		LastModified:     n.Property.LastModified(event),
+	}
 }
 
 func resolveTypeFromMessageHeader(contentTypeHeader string) string {
 	switch contentTypeHeader {
 	case "application/vnd.ft-upp-article+json":
-		return "Article"
+		return dispatch.ArticleContentType
 	case "application/vnd.ft-upp-content-package+json":
-		return "ContentPackage"
+		return dispatch.ContentPackageType
 	case "application/vnd.ft-upp-audio+json":
-		return "Audio"
+		return dispatch.AudioContentType
 	default:
 		return ""
 	}
