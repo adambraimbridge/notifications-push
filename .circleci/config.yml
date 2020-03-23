@@ -8,9 +8,6 @@ workflows:
     jobs:
       - ft-golang-ci/build-and-test:
           name: build-and-test-project
-          executor-name: ft-golang-ci/default
-          golangci-lint-version: v1.23.8
-
       - ft-golang-ci/docker-build:
           name: build-docker-image
           requires:
@@ -19,4 +16,4 @@ workflows:
     jobs:
       - ft-golang-ci/scan:
           name: scan-dependencies
-          context: org-global
+          context: cm-team-snyk
