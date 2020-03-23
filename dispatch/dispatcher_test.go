@@ -50,6 +50,8 @@ var annNotif = Notification{
 var zeroTime = time.Time{}
 
 func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
+	t.Parallel()
+
 	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
 	d := NewDispatcher(delay, h, l)
@@ -80,6 +82,8 @@ func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 }
 
 func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
+	t.Parallel()
+
 	l := logger.NewUPPLogger("test", "info")
 	l.Out = ioutil.Discard
 	hook := hooks.NewLocal(l.Logger)
@@ -144,6 +148,8 @@ func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 }
 
 func TestAddAndRemoveOfSubscribers(t *testing.T) {
+	t.Parallel()
+
 	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
 	d := NewDispatcher(delay, h, l)
@@ -173,6 +179,8 @@ func TestAddAndRemoveOfSubscribers(t *testing.T) {
 }
 
 func TestDispatchDelay(t *testing.T) {
+	t.Parallel()
+
 	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
 	d := NewDispatcher(delay, h, l)
@@ -196,6 +204,8 @@ func TestDispatchDelay(t *testing.T) {
 }
 
 func TestDispatchedNotificationsInHistory(t *testing.T) {
+	t.Parallel()
+
 	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
 	d := NewDispatcher(delay, h, l)
@@ -226,6 +236,8 @@ func TestDispatchedNotificationsInHistory(t *testing.T) {
 }
 
 func TestInternalFailToSendNotifications(t *testing.T) {
+	t.Parallel()
+
 	l := logger.NewUPPLogger("test", "info")
 	l.Out = ioutil.Discard
 	hook := hooks.NewLocal(l.Logger)

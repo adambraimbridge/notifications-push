@@ -11,6 +11,8 @@ import (
 )
 
 func TestHistory(t *testing.T) {
+	t.Parallel()
+
 	l := logger.NewUPPLogger("test", "panic")
 	history := dispatch.NewHistory(1)
 

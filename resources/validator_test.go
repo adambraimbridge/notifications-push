@@ -13,6 +13,8 @@ import (
 )
 
 func TestIsValidApiKeySuccessful(t *testing.T) {
+	t.Parallel()
+
 	client := mocks.ClientWithResponseCode(http.StatusOK)
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
@@ -22,6 +24,8 @@ func TestIsValidApiKeySuccessful(t *testing.T) {
 }
 
 func TestIsValidApiKeyError(t *testing.T) {
+	t.Parallel()
+
 	client := mocks.ClientWithError(errors.New("client error"))
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
@@ -36,6 +40,8 @@ func TestIsValidApiKeyError(t *testing.T) {
 }
 
 func TestIsValidApiKeyEmptyKey(t *testing.T) {
+	t.Parallel()
+
 	client := mocks.ClientWithError(errors.New("client error"))
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
@@ -50,6 +56,8 @@ func TestIsValidApiKeyEmptyKey(t *testing.T) {
 }
 
 func TestIsValidApiInvalidGatewayURL(t *testing.T) {
+	t.Parallel()
+
 	client := mocks.ClientWithError(errors.New("client error"))
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
@@ -64,6 +72,8 @@ func TestIsValidApiInvalidGatewayURL(t *testing.T) {
 }
 
 func TestIsValidApiKeyResponseUnauthorized(t *testing.T) {
+	t.Parallel()
+
 	client := mocks.ClientWithResponseCode(http.StatusUnauthorized)
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
@@ -77,6 +87,8 @@ func TestIsValidApiKeyResponseUnauthorized(t *testing.T) {
 }
 
 func TestIsValidApiKeyResponseTooManyRequests(t *testing.T) {
+	t.Parallel()
+
 	client := mocks.ClientWithResponseCode(http.StatusTooManyRequests)
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
@@ -90,6 +102,8 @@ func TestIsValidApiKeyResponseTooManyRequests(t *testing.T) {
 }
 
 func TestIsValidApiKeyResponseForbidden(t *testing.T) {
+	t.Parallel()
+
 	client := mocks.ClientWithResponseCode(http.StatusForbidden)
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
@@ -103,6 +117,7 @@ func TestIsValidApiKeyResponseForbidden(t *testing.T) {
 }
 
 func TestIsValidApiKeyResponseInternalServerError(t *testing.T) {
+	t.Parallel()
 
 	client := mocks.ClientWithResponseCode(http.StatusInternalServerError)
 	l := logger.NewUPPLogger("TEST", "PANIC")
@@ -118,6 +133,7 @@ func TestIsValidApiKeyResponseInternalServerError(t *testing.T) {
 }
 
 func TestIsValidApiKeyResponseOtherServerError(t *testing.T) {
+	t.Parallel()
 
 	client := mocks.ClientWithResponseCode(http.StatusGatewayTimeout)
 	l := logger.NewUPPLogger("TEST", "PANIC")

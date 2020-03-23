@@ -61,6 +61,7 @@ var annotationMsg = kafka.NewFTMessage(map[string]string{
 }, `{"uuid":"4de8b414-c5aa-11e9-a8e9-296ca66511c9","annotations":[{"thing":{"id":"http://www.ft.com/thing/68678217-1d06-4600-9d43-b0e71a333c2a","predicate":"about"}}]}`)
 
 func TestPushNotifications(t *testing.T) {
+	t.Parallel()
 
 	l := logger.NewUPPLogger("TEST", "info")
 	l.Out = ioutil.Discard

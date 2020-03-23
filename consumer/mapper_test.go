@@ -8,6 +8,8 @@ import (
 )
 
 func TestMapToUpdateNotification(t *testing.T) {
+	t.Parallel()
+
 	standout := map[string]interface{}{"scoop": true}
 	payload := map[string]interface{}{"title": "This is a title", "standout": standout, "type": "Article"}
 
@@ -32,6 +34,8 @@ func TestMapToUpdateNotification(t *testing.T) {
 }
 
 func TestMapToUpdateNotification_ForContentWithVersion3UUID(t *testing.T) {
+	t.Parallel()
+
 	payload := struct{ Foo string }{"bar"}
 
 	event := PublicationEvent{
@@ -53,6 +57,8 @@ func TestMapToUpdateNotification_ForContentWithVersion3UUID(t *testing.T) {
 }
 
 func TestMapToDeleteNotification(t *testing.T) {
+	t.Parallel()
+
 	event := PublicationEvent{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8080/list/blah/" + uuid.NewV4().String(),
 		LastModified: "2016-11-02T10:54:22.234Z",
@@ -71,6 +77,8 @@ func TestMapToDeleteNotification(t *testing.T) {
 }
 
 func TestMapToDeleteNotification_ContentTypeHeader(t *testing.T) {
+	t.Parallel()
+
 	event := PublicationEvent{
 		ContentURI:        "http://list-transformer-pr-uk-up.svc.ft.com:8080/list/blah/" + uuid.NewV4().String(),
 		LastModified:      "2016-11-02T10:54:22.234Z",
@@ -91,6 +99,8 @@ func TestMapToDeleteNotification_ContentTypeHeader(t *testing.T) {
 }
 
 func TestNotificationMappingFailure(t *testing.T) {
+	t.Parallel()
+
 	event := PublicationEvent{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8080/list/blah",
 		LastModified: "2016-11-02T10:54:22.234Z",
@@ -108,6 +118,8 @@ func TestNotificationMappingFailure(t *testing.T) {
 }
 
 func TestNotificationMappingFieldsNotExtractedFromPayload(t *testing.T) {
+	t.Parallel()
+
 	payload := map[string]interface{}{"foo": "bar"}
 
 	event := PublicationEvent{

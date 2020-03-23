@@ -19,6 +19,7 @@ import (
 )
 
 func TestSubscription(t *testing.T) {
+	t.Parallel()
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
 
@@ -116,6 +117,7 @@ func TestSubscription(t *testing.T) {
 }
 
 func TestPassKeyAsParameter(t *testing.T) {
+	t.Parallel()
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
 
@@ -164,6 +166,7 @@ func TestPassKeyAsParameter(t *testing.T) {
 }
 
 func TestInvalidKey(t *testing.T) {
+	t.Parallel()
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
 
@@ -192,6 +195,7 @@ func TestInvalidKey(t *testing.T) {
 }
 
 func TestHeartbeat(t *testing.T) {
+	t.Parallel()
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
 
@@ -257,6 +261,7 @@ func TestHeartbeat(t *testing.T) {
 }
 
 func TestPushNotificationDelay(t *testing.T) {
+	t.Parallel()
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
 

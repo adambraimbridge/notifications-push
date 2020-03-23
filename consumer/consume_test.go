@@ -17,6 +17,8 @@ var defaultContentURIWhitelist = regexp.MustCompile(`^http://.*-transformer-(pr|
 var sparkIncludedWhiteList = regexp.MustCompile(`^http://(methode|wordpress|content|upp)-(article|collection|content-placeholder|content)-(mapper|unfolder|validator)(-pr|-iw)?(-uk-.*)?\.svc\.ft\.com(:\d{2,5})?/(content|complementarycontent)/[\w-]+.*$`)
 
 func TestSyntheticMessage(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "lists",
@@ -35,6 +37,8 @@ func TestSyntheticMessage(t *testing.T) {
 }
 
 func TestFailedCMSMessageParse(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "lists",
@@ -52,6 +56,8 @@ func TestFailedCMSMessageParse(t *testing.T) {
 }
 
 func TestWhitelist(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "lists",
@@ -70,6 +76,8 @@ func TestWhitelist(t *testing.T) {
 }
 
 func TestSparkCCTWhitelist(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "content",
@@ -89,6 +97,7 @@ func TestSparkCCTWhitelist(t *testing.T) {
 }
 
 func TestMonitoringEvents(t *testing.T) {
+	t.Parallel()
 
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
@@ -151,6 +160,7 @@ func TestMonitoringEvents(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
 			msg := kafka.NewFTMessage(test.Headers, test.Body)
 			err := handler.HandleMessage(msg)
@@ -171,6 +181,8 @@ func TestMonitoringEvents(t *testing.T) {
 }
 
 func TestAcceptNotificationBasedOnContentType(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "content",
@@ -192,6 +204,8 @@ func TestAcceptNotificationBasedOnContentType(t *testing.T) {
 }
 
 func TestAcceptNotificationBasedOnAudioContentType(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "content",
@@ -215,6 +229,8 @@ func TestAcceptNotificationBasedOnAudioContentType(t *testing.T) {
 }
 
 func TestDiscardNotificationBasedOnContentType(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "content",
@@ -239,6 +255,8 @@ func TestDiscardNotificationBasedOnContentType(t *testing.T) {
 }
 
 func TestAcceptNotificationBasedOnContentUriWhenContentTypeIsApplicationJson(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "content",
@@ -262,6 +280,8 @@ func TestAcceptNotificationBasedOnContentUriWhenContentTypeIsApplicationJson(t *
 }
 
 func TestDiscardNotificationBasedOnContentUriWhenContentTypeIsApplicationJson(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "content",
@@ -286,6 +306,8 @@ func TestDiscardNotificationBasedOnContentUriWhenContentTypeIsApplicationJson(t 
 }
 
 func TestAcceptNotificationBasedOnContentUriWhenContentTypeIsMissing(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "content",
@@ -309,6 +331,8 @@ func TestAcceptNotificationBasedOnContentUriWhenContentTypeIsMissing(t *testing.
 }
 
 func TestDiscardNotificationBasedOnContentUriWhenContentTypeIsMissing(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "content",
@@ -332,6 +356,8 @@ func TestDiscardNotificationBasedOnContentUriWhenContentTypeIsMissing(t *testing
 }
 
 func TestFailsConversionToNotification(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "list",
@@ -351,6 +377,8 @@ func TestFailsConversionToNotification(t *testing.T) {
 }
 
 func TestHandleMessage(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "lists",
@@ -371,6 +399,8 @@ func TestHandleMessage(t *testing.T) {
 }
 
 func TestHandleMessageMappingError(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "lists",
@@ -389,6 +419,8 @@ func TestHandleMessageMappingError(t *testing.T) {
 }
 
 func TestDiscardStandardCarouselPublicationEvents(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "lists",
@@ -415,6 +447,8 @@ func TestDiscardStandardCarouselPublicationEvents(t *testing.T) {
 }
 
 func TestDiscardCarouselPublicationEventsWithGeneratedTransactionID(t *testing.T) {
+	t.Parallel()
+
 	mapper := NotificationMapper{
 		APIBaseURL: "test.api.ft.com",
 		Resource:   "lists",

@@ -16,6 +16,8 @@ var fatalErrs = []error{kazoo.ErrPartitionNotClaimed, zk.ErrNoServer}
 var nonFatalErrs = []error{errors.New("foo"), errors.New("bar")}
 
 func TestSupervise(t *testing.T) {
+	t.Parallel()
+
 	var testCases = []struct {
 		description          string
 		inputErrs            []error

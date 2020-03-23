@@ -12,6 +12,8 @@ import (
 )
 
 func TestStats(t *testing.T) {
+	t.Parallel()
+
 	l := logger.NewUPPLogger("test", "panic")
 	d := &mocks.Dispatcher{}
 	d.On("Subscribers").Return([]dispatch.Subscriber{})

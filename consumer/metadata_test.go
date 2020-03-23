@@ -12,6 +12,8 @@ import (
 )
 
 func TestMetadata(t *testing.T) {
+	t.Parallel()
+
 	l := logger.NewUPPLogger("test", "panic")
 
 	tests := map[string]struct {
@@ -86,6 +88,8 @@ func TestMetadata(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			dispatcher := &mocks.Dispatcher{}
 			dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return().
 				Run(func(args mock.Arguments) {

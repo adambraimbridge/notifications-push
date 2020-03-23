@@ -13,6 +13,7 @@ import (
 )
 
 func TestHealthcheck(t *testing.T) {
+	t.Parallel()
 
 	tests := map[string]struct {
 		httpClientMock    *mocks.StatusCodeClient
@@ -66,6 +67,7 @@ func TestHealthcheck(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
 			hc := NewHealthCheck(test.kafkaConsumerMock, "randomAddress", test.httpClientMock)
 
