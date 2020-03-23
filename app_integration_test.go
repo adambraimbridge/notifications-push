@@ -6,16 +6,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
-
-	log "github.com/Financial-Times/go-logger"
-	logger "github.com/Financial-Times/go-logger/v2"
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/Financial-Times/notifications-push/v4/consumer"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
@@ -23,6 +21,7 @@ import (
 	"github.com/Financial-Times/notifications-push/v4/resources"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 var articleMsg = kafka.NewFTMessage(map[string]string{
@@ -63,8 +62,8 @@ var annotationMsg = kafka.NewFTMessage(map[string]string{
 
 func TestPushNotifications(t *testing.T) {
 
-	l := logger.NewUPPLogger("TEST", "PANIC")
-	log.InitLogger("TEST", "PANIC")
+	l := logger.NewUPPLogger("TEST", "info")
+	l.Out = ioutil.Discard
 
 	// handlers vars
 	var (
@@ -95,7 +94,7 @@ func TestPushNotifications(t *testing.T) {
 	reg.On("RegisterOnShutdown", mock.Anything)
 	defer reg.Shutdown()
 	// dispatcher
-	d, h := startDispatcher(delay, historySize)
+	d, h := startDispatcher(delay, historySize, l)
 	defer d.Stop()
 
 	// consumer
@@ -338,9 +337,9 @@ func startSubscriber(ctx context.Context, serverURL string, subType string) (<-c
 	return ch, nil
 }
 
-func startDispatcher(delay time.Duration, historySize int) (*dispatch.Dispatcher, dispatch.History) {
+func startDispatcher(delay time.Duration, historySize int, log *logger.UPPLogger) (*dispatch.Dispatcher, dispatch.History) {
 	h := dispatch.NewHistory(historySize)
-	d := dispatch.NewDispatcher(delay, h)
+	d := dispatch.NewDispatcher(delay, h, log)
 	go d.Start()
 	return d, h
 }

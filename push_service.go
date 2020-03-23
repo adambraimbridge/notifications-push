@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"time"
 
-	logV1 "github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
@@ -48,12 +47,7 @@ func startService(srv *http.Server, n notificationSystem, consumer kafka.Consume
 		n.Stop()
 	}
 }
-func initLogger(serviceName string, logLevel string) *logger.UPPLogger {
-	// while transitioning to logger V2 we need to initialize the global V1 logger too
-	logV1.InitLogger(serviceName, logLevel)
 
-	return logger.NewUPPLogger(serviceName, logLevel)
-}
 func initRouter(r *mux.Router,
 	s *resources.SubHandler,
 	resource string,
@@ -96,9 +90,9 @@ func createSupervisedConsumer(log *logger.UPPLogger, address string, groupID str
 	})
 }
 
-func createDispatcher(cacheDelay int, historySize int) (*dispatch.Dispatcher, dispatch.History) {
+func createDispatcher(cacheDelay int, historySize int, log *logger.UPPLogger) (*dispatch.Dispatcher, dispatch.History) {
 	history := dispatch.NewHistory(historySize)
-	dispatcher := dispatch.NewDispatcher(time.Duration(cacheDelay)*time.Second, history)
+	dispatcher := dispatch.NewDispatcher(time.Duration(cacheDelay)*time.Second, history, log)
 	return dispatcher, history
 }
 

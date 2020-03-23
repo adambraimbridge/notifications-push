@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/go-logger/v2"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 // NewDispatcher creates and returns a new Dispatcher
 // Delay argument configures minimum delay between send notifications
 // History is a system that collects a list of all notifications send by Dispatcher
-func NewDispatcher(delay time.Duration, history History) *Dispatcher {
+func NewDispatcher(delay time.Duration, history History, log *logger.UPPLogger) *Dispatcher {
 	return &Dispatcher{
 		delay:       delay,
 		inbound:     make(chan Notification),
@@ -24,6 +24,7 @@ func NewDispatcher(delay time.Duration, history History) *Dispatcher {
 		lock:        &sync.RWMutex{},
 		history:     history,
 		stopChan:    make(chan bool),
+		log:         log,
 	}
 }
 
@@ -34,6 +35,7 @@ type Dispatcher struct {
 	lock        *sync.RWMutex
 	history     History
 	stopChan    chan bool
+	log         *logger.UPPLogger
 }
 
 func (d *Dispatcher) Start() {
@@ -54,7 +56,7 @@ func (d *Dispatcher) Stop() {
 }
 
 func (d *Dispatcher) Send(n Notification) {
-	log.WithTransactionID(n.PublishReference).Infof("Received notification. Waiting configured delay (%v).", d.delay)
+	d.log.WithTransactionID(n.PublishReference).Infof("Received notification. Waiting configured delay (%v).", d.delay)
 	go func() {
 		time.Sleep(d.delay)
 		n.NotificationDate = time.Now().Format(RFC3339Millis)
@@ -91,10 +93,26 @@ func (d *Dispatcher) Unsubscribe(subscriber Subscriber) {
 	s := subscriber.(NotificationConsumer)
 
 	delete(d.subscribers, s)
-	log.WithField("subscriberId", subscriber.ID()).
-		WithField("subscriber", subscriber.Address()).
-		WithField("subscriberType", reflect.TypeOf(subscriber).Elem().Name()).
-		Info("Unregistered subscriber")
+
+	logWithSubscriber(d.log, s).Info("Unregistered subscriber")
+}
+
+func (d *Dispatcher) addSubscriber(s NotificationConsumer) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	d.subscribers[s] = struct{}{}
+	logWithSubscriber(d.log, s).Info("Registered new subscriber")
+}
+
+func logWithSubscriber(log *logger.UPPLogger, s Subscriber) *logger.LogEntry {
+	return log.WithFields(map[string]interface{}{
+		"subscriberId":        s.ID(),
+		"subscriberAddress":   s.Address(),
+		"subscriberType":      reflect.TypeOf(s).Elem().Name(),
+		"subscriberSince":     s.Since().Format(time.RFC3339),
+		"acceptedContentType": s.SubType(),
+	})
 }
 
 func (d *Dispatcher) forwardToSubscribers(notification Notification) {
@@ -103,22 +121,27 @@ func (d *Dispatcher) forwardToSubscribers(notification Notification) {
 
 	var sent, failed, skipped int
 	defer func() {
+		entry := d.log.
+			WithTransactionID(notification.PublishReference).
+			WithFields(map[string]interface{}{
+				"resource": notification.APIURL,
+				"sent":     sent,
+				"failed":   failed,
+				"skipped":  skipped,
+			})
 		if len(d.subscribers) == 0 || sent > 0 || len(d.subscribers) == skipped {
-			log.WithMonitoringEvent("NotificationsPush", notification.PublishReference, notification.SubscriptionType).
-				WithFields(map[string]interface{}{"resource": notification.APIURL, "sent": sent, "failed": failed, "skipped": skipped}).
+
+			entry.WithMonitoringEvent("NotificationsPush", notification.PublishReference, notification.SubscriptionType).
 				Info("Processed subscribers.")
 		} else {
-			log.WithFields(map[string]interface{}{"transaction_id": notification.PublishReference, "resource": notification.APIURL, "sent": sent, "failed": failed, "skipped": skipped}).
-				Error("Processed subscribers. Failed to send notifications")
+			entry.Error("Processed subscribers. Failed to send notifications")
 		}
 	}()
 
 	for sub := range d.subscribers {
-		entry := log.WithField("transaction_id", notification.PublishReference).
-			WithField("resource", notification.APIURL).
-			WithField("subscriberId", sub.ID()).
-			WithField("subscriberAddress", sub.Address()).
-			WithField("subscriberSince", sub.Since().Format(time.RFC3339))
+		entry := logWithSubscriber(d.log, sub).
+			WithTransactionID(notification.PublishReference).
+			WithField("resource", notification.APIURL)
 
 		if !matchesSubType(notification, sub) {
 			skipped++
@@ -135,20 +158,6 @@ func (d *Dispatcher) forwardToSubscribers(notification Notification) {
 			entry.Info("Forwarding to subscriber.")
 		}
 	}
-}
-
-func (d *Dispatcher) addSubscriber(s NotificationConsumer) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	d.subscribers[s] = struct{}{}
-
-	log.WithField("subscriberId", s.ID()).
-		WithField("subscriber", s.Address()).
-		WithField("subscriberType", reflect.TypeOf(s).Elem().Name()).
-		WithField("acceptedContentType", s.SubType()).
-		Info("Registered new subscriber")
-
 }
 
 func matchesSubType(n Notification, s Subscriber) bool {

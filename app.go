@@ -117,11 +117,9 @@ func main() {
 		EnvVar: "LOG_LEVEL",
 	})
 
-	log := logger.NewUnstructuredLogger()
+	log := logger.NewUPPLogger(serviceName, *logLevel)
 
 	app.Action = func() {
-
-		log = initLogger(serviceName, *logLevel)
 
 		log.WithFields(map[string]interface{}{
 			"CONTENT_TOPIC":  *contentTopic,
@@ -173,7 +171,7 @@ func main() {
 		healthCheckEndpoint = baseURL.ResolveReference(healthCheckEndpoint)
 		hc := resources.NewHealthCheck(kafkaConsumer, healthCheckEndpoint.String(), &resources.HTTPClient{})
 
-		dispatcher, history := createDispatcher(*delay, *historySize)
+		dispatcher, history := createDispatcher(*delay, *historySize, log)
 
 		msgConfig := msgHandlerCfg{
 			Resource:        *resource,

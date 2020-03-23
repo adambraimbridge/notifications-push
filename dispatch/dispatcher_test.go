@@ -3,11 +3,12 @@ package dispatch
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"testing"
 	"time"
 
-	"github.com/Financial-Times/go-logger"
-	logTest "github.com/Financial-Times/go-logger/test"
+	"github.com/Financial-Times/go-logger/v2"
+	hooks "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,13 +49,10 @@ var annNotif = Notification{
 
 var zeroTime = time.Time{}
 
-func init() {
-	logger.InitLogger("notifications-push", "PANIC")
-}
-
 func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
+	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
-	d := NewDispatcher(delay, h)
+	d := NewDispatcher(delay, h, l)
 
 	m := d.Subscribe("192.168.1.2", contentTypeFilter, true)
 	s := d.Subscribe("192.168.1.3", contentTypeFilter, false)
@@ -82,11 +80,13 @@ func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 }
 
 func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
-	hook := logTest.NewTestHook("notifications-push")
+	l := logger.NewUPPLogger("test", "info")
+	l.Out = ioutil.Discard
+	hook := hooks.NewLocal(l.Logger)
 	defer hook.Reset()
 
 	h := NewHistory(historySize)
-	d := NewDispatcher(delay, h)
+	d := NewDispatcher(delay, h, l)
 
 	m := d.Subscribe("192.168.1.2", contentTypeFilter, true)
 	s := d.Subscribe("192.168.1.3", typeArticle, false)
@@ -144,8 +144,9 @@ func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 }
 
 func TestAddAndRemoveOfSubscribers(t *testing.T) {
+	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
-	d := NewDispatcher(delay, h)
+	d := NewDispatcher(delay, h, l)
 
 	m := d.Subscribe("192.168.1.2", contentTypeFilter, true).(NotificationConsumer)
 	s := d.Subscribe("192.168.1.3", contentTypeFilter, false).(NotificationConsumer)
@@ -172,8 +173,9 @@ func TestAddAndRemoveOfSubscribers(t *testing.T) {
 }
 
 func TestDispatchDelay(t *testing.T) {
+	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
-	d := NewDispatcher(delay, h)
+	d := NewDispatcher(delay, h, l)
 
 	s := d.Subscribe("192.168.1.3", contentTypeFilter, false)
 
@@ -194,8 +196,9 @@ func TestDispatchDelay(t *testing.T) {
 }
 
 func TestDispatchedNotificationsInHistory(t *testing.T) {
+	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
-	d := NewDispatcher(delay, h)
+	d := NewDispatcher(delay, h, l)
 
 	go d.Start()
 	defer d.Stop()
@@ -223,11 +226,13 @@ func TestDispatchedNotificationsInHistory(t *testing.T) {
 }
 
 func TestInternalFailToSendNotifications(t *testing.T) {
-	hook := logTest.NewTestHook("notifications-push")
+	l := logger.NewUPPLogger("test", "info")
+	l.Out = ioutil.Discard
+	hook := hooks.NewLocal(l.Logger)
 	defer hook.Reset()
 
 	h := NewHistory(historySize)
-	d := NewDispatcher(0, h)
+	d := NewDispatcher(0, h, l)
 
 	s1 := &MockSubscriber{}
 	s2 := &MockSubscriber{}
@@ -243,7 +248,7 @@ func TestInternalFailToSendNotifications(t *testing.T) {
 	d.Send(n1)
 
 	time.Sleep(time.Second)
-	logger.Info("This log message is here to avoid a race condition")
+	//logger.Info("This log message is here to avoid a race condition")
 
 	foundLog := false
 	logOccurrence := 0

@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	github.com/Financial-Times/go-fthealth v0.0.0-20171204124831-1b007e2b37b7
-	github.com/Financial-Times/go-logger v0.0.0-20171020134212-ec38b420999c
 	github.com/Financial-Times/go-logger/v2 v2.0.1
 	github.com/Financial-Times/kafka v0.0.0-20181214115819-fddecb2b8f89 // indirect
 	github.com/Financial-Times/kafka-client-go v0.0.0-20181214120216-c3a1941e42a4

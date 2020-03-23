@@ -97,6 +97,7 @@ func TestMonitoringEvents(t *testing.T) {
 	l := logger.NewUPPLogger("test", "info")
 	l.Out = ioutil.Discard
 	h := hooks.NewLocal(l.Logger)
+	defer h.Reset()
 
 	dispatcher := &mocks.Dispatcher{}
 	dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return()
