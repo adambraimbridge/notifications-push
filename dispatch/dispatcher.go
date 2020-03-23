@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,7 +20,7 @@ func NewDispatcher(delay time.Duration, history History) *Dispatcher {
 	return &Dispatcher{
 		delay:       delay,
 		inbound:     make(chan Notification),
-		subscribers: map[Subscriber]struct{}{},
+		subscribers: map[NotificationConsumer]struct{}{},
 		lock:        &sync.RWMutex{},
 		history:     history,
 		stopChan:    make(chan bool),
@@ -29,7 +30,7 @@ func NewDispatcher(delay time.Duration, history History) *Dispatcher {
 type Dispatcher struct {
 	delay       time.Duration
 	inbound     chan Notification
-	subscribers map[Subscriber]struct{}
+	subscribers map[NotificationConsumer]struct{}
 	lock        *sync.RWMutex
 	history     History
 	stopChan    chan bool
@@ -73,7 +74,7 @@ func (d *Dispatcher) Subscribers() []Subscriber {
 }
 
 func (d *Dispatcher) Subscribe(address string, subType string, monitoring bool) Subscriber {
-	var s Subscriber
+	var s NotificationConsumer
 	if monitoring {
 		s = NewMonitorSubscriber(address, subType)
 	} else {
@@ -87,8 +88,10 @@ func (d *Dispatcher) Unsubscribe(subscriber Subscriber) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	delete(d.subscribers, subscriber)
-	log.WithField("subscriberId", subscriber.Id()).
+	s := subscriber.(NotificationConsumer)
+
+	delete(d.subscribers, s)
+	log.WithField("subscriberId", subscriber.ID()).
 		WithField("subscriber", subscriber.Address()).
 		WithField("subscriberType", reflect.TypeOf(subscriber).Elem().Name()).
 		Info("Unregistered subscriber")
@@ -113,17 +116,17 @@ func (d *Dispatcher) forwardToSubscribers(notification Notification) {
 	for sub := range d.subscribers {
 		entry := log.WithField("transaction_id", notification.PublishReference).
 			WithField("resource", notification.APIURL).
-			WithField("subscriberId", sub.Id()).
+			WithField("subscriberId", sub.ID()).
 			WithField("subscriberAddress", sub.Address()).
 			WithField("subscriberSince", sub.Since().Format(time.RFC3339))
 
-		if !sub.matchesSubType(notification) {
+		if !matchesSubType(notification, sub) {
 			skipped++
 			entry.Info("Skipping subscriber.")
 			continue
 		}
 
-		err := sub.send(notification)
+		err := sub.Send(notification)
 		if err != nil {
 			failed++
 			entry.WithError(err).Warn("Failed forwarding to subscriber.")
@@ -134,16 +137,37 @@ func (d *Dispatcher) forwardToSubscribers(notification Notification) {
 	}
 }
 
-func (d *Dispatcher) addSubscriber(subscriber Subscriber) {
+func (d *Dispatcher) addSubscriber(s NotificationConsumer) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	d.subscribers[subscriber] = struct{}{}
+	d.subscribers[s] = struct{}{}
 
-	log.WithField("subscriberId", subscriber.Id()).
-		WithField("subscriber", subscriber.Address()).
-		WithField("subscriberType", reflect.TypeOf(subscriber).Elem().Name()).
-		WithField("acceptedContentType", subscriber.AcceptedSubType()).
+	log.WithField("subscriberId", s.ID()).
+		WithField("subscriber", s.Address()).
+		WithField("subscriberType", reflect.TypeOf(s).Elem().Name()).
+		WithField("acceptedContentType", s.SubType()).
 		Info("Registered new subscriber")
 
+}
+
+func matchesSubType(n Notification, s Subscriber) bool {
+
+	subType := strings.ToLower(s.SubType())
+	notifType := strings.ToLower(n.SubscriptionType)
+
+	all := strings.ToLower(AllContentType)
+	ann := strings.ToLower(AnnotationsType)
+
+	if subType == all && notifType != ann {
+		return true
+	}
+
+	if n.Type == ContentDeleteType &&
+		notifType == "" &&
+		subType != ann {
+		return true
+	}
+
+	return subType == notifType
 }

@@ -108,7 +108,7 @@ func (h *SubHandler) HandleSubscription(w http.ResponseWriter, r *http.Request) 
 func (h *SubHandler) listenForNotifications(ctx context.Context, s dispatch.Subscriber, w http.ResponseWriter) {
 	bw := bufio.NewWriter(w)
 	timer := time.NewTimer(h.heartbeatPeriod)
-	logEntry := h.log.WithField("subscriberId", s.Id()).WithField("subscriber", s.Address())
+	logEntry := h.log.WithField("subscriberId", s.ID()).WithField("subscriber", s.Address())
 
 	write := func(notification string) error {
 		_, err := bw.WriteString("data: " + notification + "\n\n")
@@ -135,7 +135,7 @@ func (h *SubHandler) listenForNotifications(ctx context.Context, s dispatch.Subs
 	logEntry.Info("Heartbeat sent to subscriber successfully")
 	for {
 		select {
-		case notification := <-s.NotificationChannel():
+		case notification := <-s.Notifications():
 			err := write(notification)
 			if err != nil {
 				logEntry.WithError(err).Error("Error while sending notification to subscriber")

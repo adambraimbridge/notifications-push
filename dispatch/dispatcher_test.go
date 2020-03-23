@@ -68,16 +68,16 @@ func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 	<-time.After(time.Millisecond * 20)
 	d.Send(n2)
 
-	actualN1StdMsg := <-s.NotificationChannel()
+	actualN1StdMsg := <-s.Notifications()
 	verifyNotificationResponse(t, n1, zeroTime, zeroTime, actualN1StdMsg)
 
-	actualN2StdMsg := <-s.NotificationChannel()
+	actualN2StdMsg := <-s.Notifications()
 	verifyNotificationResponse(t, n2, zeroTime, zeroTime, actualN2StdMsg)
 
-	actualN1MonitorMsg := <-m.NotificationChannel()
+	actualN1MonitorMsg := <-m.Notifications()
 	verifyNotificationResponse(t, n1, notBefore, time.Now(), actualN1MonitorMsg)
 
-	actualN2MonitorMsg := <-m.NotificationChannel()
+	actualN2MonitorMsg := <-m.Notifications()
 	verifyNotificationResponse(t, n2, notBefore, time.Now(), actualN2MonitorMsg)
 }
 
@@ -103,16 +103,16 @@ func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 	<-time.After(time.Millisecond * 20)
 	d.Send(annNotif)
 
-	actualN2StdMsg := <-s.NotificationChannel()
+	actualN2StdMsg := <-s.Notifications()
 	verifyNotificationResponse(t, n2, zeroTime, zeroTime, actualN2StdMsg)
 
-	msg := <-annSub.NotificationChannel()
+	msg := <-annSub.Notifications()
 	verifyNotificationResponse(t, annNotif, notBefore, time.Now(), msg)
 
-	actualN1MonitorMsg := <-m.NotificationChannel()
+	actualN1MonitorMsg := <-m.Notifications()
 	verifyNotificationResponse(t, n1, notBefore, time.Now(), actualN1MonitorMsg)
 
-	actualN2MonitorMsg := <-m.NotificationChannel()
+	actualN2MonitorMsg := <-m.Notifications()
 	verifyNotificationResponse(t, n2, notBefore, time.Now(), actualN2MonitorMsg)
 
 	for _, e := range hook.AllEntries() {
@@ -147,8 +147,8 @@ func TestAddAndRemoveOfSubscribers(t *testing.T) {
 	h := NewHistory(historySize)
 	d := NewDispatcher(delay, h)
 
-	m := d.Subscribe("192.168.1.2", contentTypeFilter, true)
-	s := d.Subscribe("192.168.1.3", contentTypeFilter, false)
+	m := d.Subscribe("192.168.1.2", contentTypeFilter, true).(NotificationConsumer)
+	s := d.Subscribe("192.168.1.3", contentTypeFilter, false).(NotificationConsumer)
 
 	go d.Start()
 	defer d.Stop()
@@ -183,7 +183,7 @@ func TestDispatchDelay(t *testing.T) {
 	start := time.Now()
 	go d.Send(n1)
 
-	actualN1StdMsg := <-s.NotificationChannel()
+	actualN1StdMsg := <-s.Notifications()
 
 	stop := time.Now()
 
@@ -296,7 +296,7 @@ type MockSubscriber struct {
 }
 
 // AcceptedSubType provides a mock function with given fields:
-func (_m *MockSubscriber) AcceptedSubType() string {
+func (_m *MockSubscriber) SubType() string {
 	return "ContentPackage"
 }
 
@@ -305,27 +305,18 @@ func (_m *MockSubscriber) Address() string {
 	return "192.168.1.1"
 }
 
-// matchesSubType provides a mock function with given fields: n
-func (_m *MockSubscriber) matchesSubType(n Notification) bool {
-	return true
-}
-
 // send provides a mock function with given fields: n
-func (_m *MockSubscriber) send(n Notification) error {
+func (_m *MockSubscriber) Send(n Notification) error {
 	return errors.New("error")
 }
 
-// writeOnMsgChannel provides a mock function with given fields: _a0
-func (_m *MockSubscriber) writeOnMsgChannel(_a0 string) {
-}
-
 // Id provides a mock function with given fields:
-func (_m *MockSubscriber) Id() string {
+func (_m *MockSubscriber) ID() string {
 	return "id"
 }
 
 // NotificationChannel provides a mock function with given fields:
-func (_m *MockSubscriber) NotificationChannel() chan string {
+func (_m *MockSubscriber) Notifications() <-chan string {
 	return make(chan string, 16)
 }
 

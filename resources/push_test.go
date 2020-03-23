@@ -142,7 +142,7 @@ func TestPassKeyAsParameter(t *testing.T) {
 			cancel()
 		}()
 	}).Return(sub)
-	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
+	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.StandardSubscriber")).Return()
 	r := mocks.NewShutdownReg()
 	r.On("RegisterOnShutdown", mock.Anything).Return()
 	defer r.Shutdown()
@@ -208,7 +208,7 @@ func TestHeartbeat(t *testing.T) {
 	sub := dispatch.NewStandardSubscriber(subAddress, defaultSubscriptionType)
 	d := &mocks.Dispatcher{}
 	d.On("Subscribe", subAddress, defaultSubscriptionType, false).Return(sub)
-	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
+	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.StandardSubscriber")).Return()
 	r := mocks.NewShutdownReg()
 	r.On("RegisterOnShutdown", mock.Anything).Return()
 	defer r.Shutdown()
@@ -276,10 +276,11 @@ func TestPushNotificationDelay(t *testing.T) {
 	d.On("Subscribe", subAddress, defaultSubscriptionType, false).Run(func(args mock.Arguments) {
 		go func() {
 			<-time.After(notificationDelay)
-			sub.NotificationChannel() <- "hi"
+			err := sub.Send(dispatch.Notification{})
+			assert.NoError(t, err)
 		}()
 	}).Return(sub)
-	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.standardSubscriber")).Return()
+	d.On("Unsubscribe", mock.AnythingOfType("*dispatch.StandardSubscriber")).Return()
 	r := mocks.NewShutdownReg()
 	r.On("RegisterOnShutdown", mock.Anything).Return()
 	defer r.Shutdown()
@@ -309,7 +310,7 @@ func TestPushNotificationDelay(t *testing.T) {
 	delay = time.Since(start)
 
 	assert.InEpsilon(t, notificationDelay.Nanoseconds(), delay.Nanoseconds(), 0.08, "The notification is send in the correct time frame")
-	assert.Equal(t, "data: hi\n\n", msg, "Should get the notification")
+	assert.Equal(t, "data: [{\"apiUrl\":\"\",\"id\":\"\",\"type\":\"\"}]\n\n\n", msg, "Should get the notification")
 
 	start = start.Add(notificationDelay)
 	msg, _ = pipe.readString()

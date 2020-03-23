@@ -3,28 +3,33 @@ package dispatch
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"reflect"
-	"strings"
 	"time"
 
-	log "github.com/Financial-Times/go-logger"
 	uuid "github.com/satori/go.uuid"
 )
 
+const notificationBuffer = 16
+
+var ErrSubLagging = errors.New("subscriber lagging behind")
+
 // Subscriber represents the interface of a generic subscriber to a push stream
 type Subscriber interface {
-	Id() string
-	send(n Notification) error
-	matchesSubType(n Notification) bool
-	NotificationChannel() chan string
-	writeOnMsgChannel(string)
+	ID() string
+	Notifications() <-chan string
 	Address() string
 	Since() time.Time
-	AcceptedSubType() string
+	SubType() string
+}
+
+type NotificationConsumer interface {
+	Subscriber
+	Send(n Notification) error
 }
 
 // StandardSubscriber implements a standard subscriber
-type standardSubscriber struct {
+type StandardSubscriber struct {
 	id                  string
 	notificationChannel chan string
 	addr                string
@@ -33,9 +38,9 @@ type standardSubscriber struct {
 }
 
 // NewStandardSubscriber returns a new instance of a standard subscriber
-func NewStandardSubscriber(address string, subType string) Subscriber {
-	notificationChannel := make(chan string, 16)
-	return &standardSubscriber{
+func NewStandardSubscriber(address string, subType string) *StandardSubscriber {
+	notificationChannel := make(chan string, notificationBuffer)
+	return &StandardSubscriber{
 		id:                  uuid.NewV4().String(),
 		notificationChannel: notificationChannel,
 		addr:                address,
@@ -46,70 +51,42 @@ func NewStandardSubscriber(address string, subType string) Subscriber {
 
 // Id returns the uniquely generated subscriber identifier
 // Returned value is assigned during the construction phase.
-// nolint: golint stylecheck
-func (s *standardSubscriber) Id() string {
+func (s *StandardSubscriber) ID() string {
 	return s.id
 }
 
 // Address returns the IP address of the standard subscriber
-func (s *standardSubscriber) Address() string {
+func (s *StandardSubscriber) Address() string {
 	return s.addr
 }
 
-// AcceptedSubType returns the accepted subscription type for which notifications are returned
-func (s *standardSubscriber) AcceptedSubType() string {
+// SubType returns the accepted subscription type for which notifications are returned
+func (s *StandardSubscriber) SubType() string {
 	return s.acceptedType
 }
 
 // Since returns the time since a subscriber have been registered
-func (s *standardSubscriber) Since() time.Time {
+func (s *StandardSubscriber) Since() time.Time {
 	return s.sinceTime
 }
 
-func (s *standardSubscriber) matchesSubType(n Notification) bool {
-
-	subType := strings.ToLower(s.acceptedType)
-	notifType := strings.ToLower(n.SubscriptionType)
-
-	all := strings.ToLower(AllContentType)
-	ann := strings.ToLower(AnnotationsType)
-
-	if subType == all && notifType != ann {
-		return true
-	}
-
-	if n.Type == ContentDeleteType &&
-		notifType == "" &&
-		subType != ann {
-		return true
-	}
-
-	return subType == notifType
-}
-
-func (s *standardSubscriber) send(n Notification) error {
-	notificationMsg, err := buildStandardNotificationMsg(n)
-	if err != nil {
-		return err
-	}
-	s.writeOnMsgChannel(notificationMsg)
-	return nil
-}
-
-// NotificationChannel returns the channel that can be used to send
-// notifications to the standard subscriber
-func (s *standardSubscriber) NotificationChannel() chan string {
+// Notifications returns the channel that can provides serialized notifications send to the subscriber
+func (s *StandardSubscriber) Notifications() <-chan string {
 	return s.notificationChannel
 }
 
-func (s *standardSubscriber) writeOnMsgChannel(msg string) {
+// Send tries to send notification to the subscriber.
+// It removes the monitoring fields from the notification. Serializes it as string and pushes it to the subscriber
+func (s *StandardSubscriber) Send(n Notification) error {
+	msg, err := buildStandardNotificationMsg(n)
+	if err != nil {
+		return err
+	}
 	select {
 	case s.notificationChannel <- msg:
+		return nil
 	default:
-		log.WithField("subscriberId", s.id).
-			WithField("subscriber", s.Address()).
-			WithField("message", msg).
-			Warn("Subscriber lagging behind...")
+		return ErrSubLagging
 	}
 }
 
@@ -146,26 +123,59 @@ func MarshalNotificationsJSON(n []Notification) ([]byte, error) {
 }
 
 // monitorSubscriber implements a Monitor subscriber
-type monitorSubscriber struct {
-	Subscriber
+type MonitorSubscriber struct {
+	id                  string
+	notificationChannel chan string
+	addr                string
+	sinceTime           time.Time
+	acceptedType        string
 }
 
-// NewMonitorSubscriber returns a new instance of a Monitor subscriber
-func NewMonitorSubscriber(address string, subType string) Subscriber {
-	return &monitorSubscriber{NewStandardSubscriber(address, subType)}
+func (m *MonitorSubscriber) ID() string {
+	return m.id
 }
 
-func (m *monitorSubscriber) send(n Notification) error {
+func (m *MonitorSubscriber) Notifications() <-chan string {
+	return m.notificationChannel
+}
+
+func (m *MonitorSubscriber) Address() string {
+	return m.addr
+}
+
+func (m *MonitorSubscriber) Since() time.Time {
+	return m.sinceTime
+}
+
+func (m *MonitorSubscriber) SubType() string {
+	return m.acceptedType
+}
+
+func (m *MonitorSubscriber) Send(n Notification) error {
 	// -- set subscriberId for NPM traceability only for monitor mode subscribers
-	n.SubscriberID = m.Id()
-	// --
-
-	notificationMsg, err := buildMonitorNotificationMsg(n)
+	n.SubscriberID = m.ID()
+	msg, err := buildMonitorNotificationMsg(n)
 	if err != nil {
 		return err
 	}
-	m.writeOnMsgChannel(notificationMsg)
-	return nil
+	select {
+	case m.notificationChannel <- msg:
+		return nil
+	default:
+		return ErrSubLagging
+	}
+}
+
+// NewMonitorSubscriber returns a new instance of a Monitor subscriber
+func NewMonitorSubscriber(address string, subType string) *MonitorSubscriber {
+	notificationChannel := make(chan string, notificationBuffer)
+	return &MonitorSubscriber{
+		id:                  uuid.NewV4().String(),
+		notificationChannel: notificationChannel,
+		addr:                address,
+		sinceTime:           time.Now(),
+		acceptedType:        subType,
+	}
 }
 
 func buildMonitorNotificationMsg(n Notification) (string, error) {
@@ -173,12 +183,12 @@ func buildMonitorNotificationMsg(n Notification) (string, error) {
 }
 
 // MarshalJSON returns the JSON representation of a StandardSubscriber
-func (s *standardSubscriber) MarshalJSON() ([]byte, error) {
+func (s *StandardSubscriber) MarshalJSON() ([]byte, error) {
 	return json.Marshal(newSubscriberPayload(s))
 }
 
 // MarshalJSON returns the JSON representation of a MonitorSubscriber
-func (m *monitorSubscriber) MarshalJSON() ([]byte, error) {
+func (m *MonitorSubscriber) MarshalJSON() ([]byte, error) {
 	return json.Marshal(newSubscriberPayload(m))
 }
 
@@ -193,7 +203,7 @@ type SubscriberPayload struct {
 
 func newSubscriberPayload(s Subscriber) *SubscriberPayload {
 	return &SubscriberPayload{
-		ID:                 s.Id(),
+		ID:                 s.ID(),
 		Address:            s.Address(),
 		Since:              s.Since().Format(time.StampMilli),
 		ConnectionDuration: time.Since(s.Since()).String(),
