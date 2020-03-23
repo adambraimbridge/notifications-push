@@ -41,6 +41,7 @@ func (d *Dispatcher) Start() {
 		select {
 		case notification := <-d.inbound:
 			d.forwardToSubscribers(notification)
+			d.history.Push(notification)
 		case <-d.stopChan:
 			return
 		}
@@ -131,8 +132,6 @@ func (d *Dispatcher) forwardToSubscribers(notification Notification) {
 			entry.Info("Forwarding to subscriber.")
 		}
 	}
-
-	d.history.Push(notification)
 }
 
 func (d *Dispatcher) addSubscriber(subscriber Subscriber) {
