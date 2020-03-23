@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	log "github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 )
 
@@ -34,15 +34,17 @@ type ContentQueueHandler struct {
 	contentTypeWhitelist *Set
 	mapper               NotificationMapper
 	dispatcher           notificationDispatcher
+	log                  *logger.UPPLogger
 }
 
 // NewContentQueueHandler returns a new message handler
-func NewContentQueueHandler(contentURIWhitelist *regexp.Regexp, contentTypeWhitelist *Set, mapper NotificationMapper, dispatcher notificationDispatcher) *ContentQueueHandler {
+func NewContentQueueHandler(contentURIWhitelist *regexp.Regexp, contentTypeWhitelist *Set, mapper NotificationMapper, dispatcher notificationDispatcher, log *logger.UPPLogger) *ContentQueueHandler {
 	return &ContentQueueHandler{
 		contentURIWhitelist:  contentURIWhitelist,
 		contentTypeWhitelist: contentTypeWhitelist,
 		mapper:               mapper,
 		dispatcher:           dispatcher,
+		log:                  log,
 	}
 }
 
@@ -52,7 +54,7 @@ func (qHandler *ContentQueueHandler) HandleMessage(queueMsg kafka.FTMessage) err
 	pubEvent, err := msg.ToPublicationEvent()
 	contentType := msg.Headers["Content-Type"]
 
-	monitoringLogger := log.WithMonitoringEvent("NotificationsPush", tid, contentType)
+	monitoringLogger := qHandler.log.WithMonitoringEvent("NotificationsPush", tid, contentType)
 	if err != nil {
 		monitoringLogger.WithField("message_body", msg.Body).WithError(err).Warn("Skipping event.")
 		return err
@@ -88,7 +90,7 @@ func (qHandler *ContentQueueHandler) HandleMessage(queueMsg kafka.FTMessage) err
 		return err
 	}
 
-	log.WithField("resource", notification.APIURL).WithField("transaction_id", notification.PublishReference).Info("Valid notification received")
+	qHandler.log.WithField("resource", notification.APIURL).WithField("transaction_id", notification.PublishReference).Info("Valid notification received")
 	qHandler.dispatcher.Send(notification)
 
 	return nil

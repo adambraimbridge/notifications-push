@@ -99,7 +99,7 @@ func TestPushNotifications(t *testing.T) {
 	defer d.Stop()
 
 	// consumer
-	msgQueue := createMsgQueue(t, uriWhitelist, typeWhitelist, originWhitelist, resource, "test-api", d)
+	msgQueue := createMsgQueue(t, uriWhitelist, typeWhitelist, originWhitelist, resource, "test-api", d, l)
 
 	// server
 	router := mux.NewRouter()
@@ -345,7 +345,7 @@ func startDispatcher(delay time.Duration, historySize int) (*dispatch.Dispatcher
 	return d, h
 }
 
-func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, originWhitelist []string, resource string, apiURL string, d *dispatch.Dispatcher) consumer.MessageQueueHandler {
+func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, originWhitelist []string, resource string, apiURL string, d *dispatch.Dispatcher, log *logger.UPPLogger) consumer.MessageQueueHandler {
 	set := consumer.NewSet()
 	for _, value := range typeWhitelist {
 		set.Add(value)
@@ -358,8 +358,8 @@ func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, o
 		APIBaseURL: apiURL,
 		Property:   &conceptTimeReader{},
 	}
-	contentHandler := consumer.NewContentQueueHandler(reg, set, mapper, d)
-	metadataHandler := consumer.NewMetadataQueueHandler(originWhitelist, mapper, d)
+	contentHandler := consumer.NewContentQueueHandler(reg, set, mapper, d, log)
+	metadataHandler := consumer.NewMetadataQueueHandler(originWhitelist, mapper, d, log)
 
 	return consumer.NewMessageQueueHandler(contentHandler, metadataHandler)
 }

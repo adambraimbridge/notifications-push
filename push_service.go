@@ -110,7 +110,7 @@ type msgHandlerCfg struct {
 	MetadataHeaders []string
 }
 
-func createMessageHandler(config msgHandlerCfg, dispatcher *dispatch.Dispatcher) (*queueConsumer.MessageQueueRouter, error) {
+func createMessageHandler(config msgHandlerCfg, dispatcher *dispatch.Dispatcher, log *logger.UPPLogger) (*queueConsumer.MessageQueueRouter, error) {
 	mapper := queueConsumer.NotificationMapper{
 		Resource:   config.Resource,
 		APIBaseURL: config.BaseURL,
@@ -124,8 +124,8 @@ func createMessageHandler(config msgHandlerCfg, dispatcher *dispatch.Dispatcher)
 	for _, value := range config.ContentTypes {
 		ctWhitelist.Add(value)
 	}
-	contentHandler := queueConsumer.NewContentQueueHandler(whitelistR, ctWhitelist, mapper, dispatcher)
-	metadataHandler := queueConsumer.NewMetadataQueueHandler(config.MetadataHeaders, mapper, dispatcher)
+	contentHandler := queueConsumer.NewContentQueueHandler(whitelistR, ctWhitelist, mapper, dispatcher, log)
+	metadataHandler := queueConsumer.NewMetadataQueueHandler(config.MetadataHeaders, mapper, dispatcher, log)
 	handler := queueConsumer.NewMessageQueueHandler(contentHandler, metadataHandler)
 	return handler, nil
 }

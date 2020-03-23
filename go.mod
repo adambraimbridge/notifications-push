@@ -19,6 +19,7 @@ require (
 	github.com/pkg/errors v0.8.0
 	github.com/samuel/go-zookeeper v0.0.0-20161028232340-1d7be4effb13
 	github.com/satori/go.uuid v1.1.1-0.20170321230731-5bf94b69c6b6
+	github.com/sirupsen/logrus v1.0.5
 	github.com/stretchr/testify v1.3.0
 	github.com/wvanbergen/kazoo-go v0.0.0-20180202103751-f72d8611297a
 	golang.org/x/time v0.0.0-20191023065245-6d3f0bb11be5 // indirect

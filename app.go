@@ -183,7 +183,7 @@ func main() {
 			MetadataHeaders: *whitelistedMetadataOriginSystemHeaders,
 		}
 
-		queueHandler, err := createMessageHandler(msgConfig, dispatcher)
+		queueHandler, err := createMessageHandler(msgConfig, dispatcher, log)
 		if err != nil {
 			log.WithError(err).Fatal("could not start notification consumer")
 		}

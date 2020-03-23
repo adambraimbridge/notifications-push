@@ -3,7 +3,7 @@ package consumer
 import (
 	"testing"
 
-	logger "github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 	"github.com/Financial-Times/notifications-push/v4/mocks"
@@ -12,7 +12,7 @@ import (
 )
 
 func TestMetadata(t *testing.T) {
-	logger.InitDefaultLogger("test-notifications-push")
+	l := logger.NewUPPLogger("test", "panic")
 
 	tests := map[string]struct {
 		mapper      NotificationMapper
@@ -92,7 +92,7 @@ func TestMetadata(t *testing.T) {
 					arg := args.Get(0).(dispatch.Notification)
 					test.sendFunc(arg)
 				})
-			handler := NewMetadataQueueHandler(test.whitelist, test.mapper, dispatcher)
+			handler := NewMetadataQueueHandler(test.whitelist, test.mapper, dispatcher, l)
 			err := handler.HandleMessage(test.msg)
 			if test.expectError {
 				if err == nil {
