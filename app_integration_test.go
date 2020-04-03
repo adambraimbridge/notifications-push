@@ -90,7 +90,6 @@ func TestPushNotifications(t *testing.T) {
 
 	// mocks
 	queue := &mocks.KafkaConsumer{}
-	statusClient := &mocks.StatusCodeClient{}
 	reg := mocks.NewShutdownReg()
 	reg.On("RegisterOnShutdown", mock.Anything)
 	defer reg.Shutdown()
@@ -107,7 +106,7 @@ func TestPushNotifications(t *testing.T) {
 	defer server.Close()
 
 	// handler
-	hc := resources.NewHealthCheck(queue, apiGatewayGTGURL, statusClient)
+	hc := resources.NewHealthCheck(queue, apiGatewayGTGURL, nil)
 
 	keyValidator := resources.NewKeyValidator(server.URL+apiGatewayURL, http.DefaultClient, l)
 	s := resources.NewSubHandler(d, keyValidator, reg, heartbeat, l)
@@ -122,7 +121,7 @@ func TestPushNotifications(t *testing.T) {
 	// context that controls the live of all subscribers
 	ctx, cancel := context.WithCancel(context.Background())
 
-	testHealthcheckEndpoints(ctx, t, server.URL, queue, statusClient)
+	testHealthcheckEndpoints(ctx, t, server.URL, queue, hc)
 
 	testClientWithNONotifications(ctx, t, server.URL, heartbeat, "Audio")
 	testClientWithNotifications(ctx, t, server.URL, "Article", expectedArticleNotificationBody)
@@ -158,79 +157,80 @@ func TestPushNotifications(t *testing.T) {
 
 }
 
-func testHealthcheckEndpoints(ctx context.Context, t *testing.T, serverURL string, queue *mocks.KafkaConsumer, statusClient *mocks.StatusCodeClient) {
+func testHealthcheckEndpoints(ctx context.Context, t *testing.T, serverURL string, queue *mocks.KafkaConsumer, hc *resources.HealthCheck) {
 
 	tests := map[string]struct {
 		url            string
 		expectedStatus int
 		expectedBody   string
-		clientFunc     func(string) (int, error)
+		clientFunc     resources.RequestStatusFn
 		kafkaFunc      func() error
 	}{"gtg endpoint success": {
 		url: "/__gtg",
-		clientFunc: func(url string) (int, error) {
-			return 200, nil
+		clientFunc: func(ctx context.Context, url string) (int, error) {
+			return http.StatusOK, nil
 		},
 		kafkaFunc: func() error {
 			return nil
 		},
-		expectedStatus: 200,
+		expectedStatus: http.StatusOK,
 		expectedBody:   "OK",
 	},
 		"gtg endpoint kafka failure": {
 			url: "/__gtg",
-			clientFunc: func(url string) (int, error) {
-				return 200, nil
+			clientFunc: func(ctx context.Context, url string) (int, error) {
+				return http.StatusOK, nil
 			},
 			kafkaFunc: func() error {
 				return errors.New("sample error")
 			},
-			expectedStatus: 503,
+			expectedStatus: http.StatusServiceUnavailable,
 			expectedBody:   "error connecting to kafka queue",
 		},
 		"gtg endpoint ApiGateway failure": {
 			url: "/__gtg",
-			clientFunc: func(url string) (int, error) {
-				return 503, errors.New("gateway failed")
+			clientFunc: func(ctx context.Context, url string) (int, error) {
+				return http.StatusServiceUnavailable, errors.New("gateway failed")
 			},
 			kafkaFunc: func() error {
 				return nil
 			},
-			expectedStatus: 503,
+			expectedStatus: http.StatusServiceUnavailable,
 			expectedBody:   "gateway failed",
 		},
 		"responds on build-info": {
 			url: "/__build-info",
-			clientFunc: func(url string) (int, error) {
-				return 200, nil
+			clientFunc: func(ctx context.Context, url string) (int, error) {
+				return http.StatusOK, nil
 			},
 			kafkaFunc: func() error {
 				return nil
 			},
-			expectedStatus: 200,
+			expectedStatus: http.StatusOK,
 			expectedBody:   `{"version":`,
 		},
 		"responds on ping": {
 			url: "/__ping",
-			clientFunc: func(url string) (int, error) {
-				return 200, nil
+			clientFunc: func(ctx context.Context, url string) (int, error) {
+				return http.StatusOK, nil
 			},
 			kafkaFunc: func() error {
 				return nil
 			},
-			expectedStatus: 200,
+			expectedStatus: http.StatusOK,
 			expectedBody:   "pong",
 		},
 	}
-	backupClientFunc := statusClient.GetStatusCodeF
+	backupClientFunc := hc.StatusFunc
 	backupKafkaFunc := queue.ConnectivityCheckF
 	defer func() {
-		statusClient.GetStatusCodeF = backupClientFunc
+		hc.StatusFunc = backupClientFunc
 		queue.ConnectivityCheckF = backupKafkaFunc
 	}()
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			statusClient.GetStatusCodeF = test.clientFunc
+
+			hc.StatusFunc = test.clientFunc
 			queue.ConnectivityCheckF = test.kafkaFunc
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, serverURL+test.url, nil)

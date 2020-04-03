@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
@@ -11,9 +12,7 @@ import (
 
 const panicGuideURL = "https://runbooks.in.ft.com/upp-notifications-push"
 
-type StatusClient interface {
-	GetStatusCode(url string) (int, error)
-}
+type RequestStatusFn func(ctx context.Context, url string) (int, error)
 
 type KafkaConsumer interface {
 	ConnectivityCheck() error
@@ -21,15 +20,15 @@ type KafkaConsumer interface {
 
 type HealthCheck struct {
 	consumer             KafkaConsumer
-	statusClient         StatusClient
+	StatusFunc           RequestStatusFn
 	apiGatewayGTGAddress string
 }
 
-func NewHealthCheck(kafkaConsumer KafkaConsumer, apiGatewayGTGAddress string, httpClient StatusClient) *HealthCheck {
+func NewHealthCheck(kafkaConsumer KafkaConsumer, apiGatewayGTGAddress string, statusFunc RequestStatusFn) *HealthCheck {
 	return &HealthCheck{
 		consumer:             kafkaConsumer,
 		apiGatewayGTGAddress: apiGatewayGTGAddress,
-		statusClient:         httpClient,
+		StatusFunc:           statusFunc,
 	}
 }
 
@@ -101,7 +100,10 @@ func (h *HealthCheck) apiGatewayCheck() fthealth.Check {
 
 func (h *HealthCheck) checkAPIGatewayService() (string, error) {
 
-	statusCode, err := h.statusClient.GetStatusCode(h.apiGatewayGTGAddress)
+	if h.StatusFunc == nil {
+		return "", errors.New("no status func")
+	}
+	statusCode, err := h.StatusFunc(context.Background(), h.apiGatewayGTGAddress)
 	if err != nil {
 		return "", err
 	}

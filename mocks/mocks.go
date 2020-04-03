@@ -92,17 +92,6 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return response, nil
 }
 
-type StatusCodeClient struct {
-	GetStatusCodeF func(url string) (int, error)
-}
-
-func (c *StatusCodeClient) GetStatusCode(url string) (int, error) {
-	if c.GetStatusCodeF != nil {
-		return c.GetStatusCodeF(url)
-	}
-	return 0, errors.New("not implemented")
-}
-
 type KafkaConsumer struct {
 	ConnectivityCheckF func() error
 }

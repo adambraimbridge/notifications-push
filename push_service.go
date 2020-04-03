@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -122,6 +123,22 @@ func createMessageHandler(config msgHandlerCfg, dispatcher *dispatch.Dispatcher,
 	metadataHandler := queueConsumer.NewMetadataQueueHandler(config.MetadataHeaders, mapper, dispatcher, log)
 	handler := queueConsumer.NewMessageQueueHandler(contentHandler, metadataHandler)
 	return handler, nil
+}
+
+func requestStatusCode(ctx context.Context, url string) (int, error) {
+
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, url, bytes.NewReader([]byte("")))
+	if err != nil {
+		return 0, fmt.Errorf("error creating request: %w", err)
+	}
+	client := &http.Client{Timeout: time.Second * 15}
+	res, err := client.Do(r)
+	if err != nil {
+		return 0, fmt.Errorf("error making http request:%w", err)
+	}
+	defer res.Body.Close()
+
+	return res.StatusCode, nil
 }
 
 type conceptTimeReader struct{}
