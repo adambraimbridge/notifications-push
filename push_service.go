@@ -69,9 +69,26 @@ func initRouter(r *mux.Router,
 
 }
 
-func createSupervisedConsumer(log *logger.UPPLogger, address string, groupID string, topics []string) (kafka.Consumer, error) {
+type supervisedConsumer struct {
+	c     kafka.Consumer
+	errCh chan error
+}
+
+func (s *supervisedConsumer) StartListening(messageHandler func(message kafka.FTMessage) error) {
+	s.c.StartListening(messageHandler)
+}
+
+func (s *supervisedConsumer) Shutdown() {
+	close(s.errCh)
+	s.c.Shutdown()
+}
+
+func (s *supervisedConsumer) ConnectivityCheck() error {
+	return s.c.ConnectivityCheck()
+}
+
+func createSupervisedConsumer(log *logger.UPPLogger, address string, groupID string, topics []string) (*supervisedConsumer, error) {
 	errCh := make(chan error, 2)
-	defer close(errCh)
 	var fatalErrs = []error{kazoo.ErrPartitionNotClaimed, zk.ErrNoServer}
 	fatalErrHandler := func(err error, serviceName string) {
 		log.WithError(err).Fatalf("Exiting %s due to fatal error", serviceName)
@@ -82,13 +99,17 @@ func createSupervisedConsumer(log *logger.UPPLogger, address string, groupID str
 
 	consumerConfig := kafka.DefaultConsumerConfig()
 	consumerConfig.Zookeeper.Logger = stdlog.New(ioutil.Discard, "", 0)
-	return kafka.NewConsumer(kafka.Config{
+	c, err := kafka.NewConsumer(kafka.Config{
 		ZookeeperConnectionString: address,
 		ConsumerGroup:             groupID,
 		Topics:                    topics,
 		ConsumerGroupConfig:       consumerConfig,
 		Err:                       errCh,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return &supervisedConsumer{c: c, errCh: errCh}, nil
 }
 
 func createDispatcher(cacheDelay int, historySize int, log *logger.UPPLogger) (*dispatch.Dispatcher, dispatch.History) {
