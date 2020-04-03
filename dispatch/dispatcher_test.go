@@ -260,7 +260,6 @@ func TestInternalFailToSendNotifications(t *testing.T) {
 	d.Send(n1)
 
 	time.Sleep(time.Second)
-	//logger.Info("This log message is here to avoid a race condition")
 
 	foundLog := false
 	logOccurrence := 0

@@ -66,9 +66,9 @@ func TestHealthcheck(t *testing.T) {
 	}
 
 	for name, test := range tests {
+		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
 			hc := NewHealthCheck(test.kafkaConsumerMock, "randomAddress", test.httpClientMock)
 
 			req, err := http.NewRequest("GET", "/__health", nil)

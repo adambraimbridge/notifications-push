@@ -144,9 +144,7 @@ func TestPushNotifications(t *testing.T) {
 				return
 			case <-time.After(sendDelay):
 				for _, msg := range msgs {
-					err := msgQueue.HandleMessage(msg)
-					if err != nil {
-						assert.NoError(t, err)
+					if !assert.NoError(t, msgQueue.HandleMessage(msg)) {
 						return
 					}
 				}

@@ -74,6 +74,7 @@ func TestSubscription(t *testing.T) {
 	handler := NewSubHandler(d, v, r, heartbeat, l)
 
 	for name, test := range tests {
+		test := test
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 

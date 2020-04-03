@@ -25,27 +25,22 @@ func (m *KeyValidator) Validate(ctx context.Context, key string) error {
 	return nil
 }
 
-// Dispatcher is a mock of a dispatcher that can be reused for testing
 type Dispatcher struct {
 	mock.Mock
 }
 
-// Start mocks Start
 func (m *Dispatcher) Start() {
 	m.Called()
 }
 
-// Stop mocks Stop
 func (m *Dispatcher) Stop() {
 	m.Called()
 }
 
-// Send mocks Send
 func (m *Dispatcher) Send(notification dispatch.Notification) {
 	m.Called(notification)
 }
 
-// Subscribers mocks Subscribers
 func (m *Dispatcher) Subscribers() []dispatch.Subscriber {
 	args := m.Called()
 	return args.Get(0).([]dispatch.Subscriber)
