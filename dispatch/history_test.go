@@ -8,6 +8,8 @@ import (
 )
 
 func TestHistory(t *testing.T) {
+	t.Parallel()
+
 	history := NewHistory(2)
 	lastModified := time.Now()
 

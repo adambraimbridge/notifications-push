@@ -3,21 +3,25 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"testing"
 	"time"
 
-	log "github.com/Financial-Times/go-logger"
-	logger "github.com/Financial-Times/go-logger/v2"
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/Financial-Times/notifications-push/v4/consumer"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/Financial-Times/notifications-push/v4/mocks"
 	"github.com/Financial-Times/notifications-push/v4/resources"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 var articleMsg = kafka.NewFTMessage(map[string]string{
@@ -57,15 +61,17 @@ var annotationMsg = kafka.NewFTMessage(map[string]string{
 }, `{"uuid":"4de8b414-c5aa-11e9-a8e9-296ca66511c9","annotations":[{"thing":{"id":"http://www.ft.com/thing/68678217-1d06-4600-9d43-b0e71a333c2a","predicate":"about"}}]}`)
 
 func TestPushNotifications(t *testing.T) {
+	t.Parallel()
 
-	l := logger.NewUPPLogger("TEST", "PANIC")
-	log.InitLogger("TEST", "PANIC")
+	l := logger.NewUPPLogger("TEST", "info")
+	l.Out = ioutil.Discard
 
 	// handlers vars
 	var (
-		apiGatewayURL = "/api-gateway"
-		heartbeat     = time.Second * 1
-		resource      = "content"
+		apiGatewayURL    = "/api-gateway"
+		apiGatewayGTGURL = "/api-gateway/__gtg"
+		heartbeat        = time.Second * 1
+		resource         = "content"
 	)
 	// dispatch vars
 	var (
@@ -82,12 +88,17 @@ func TestPushNotifications(t *testing.T) {
 		sendDelay                       = time.Millisecond * 190
 	)
 
+	// mocks
+	queue := &mocks.KafkaConsumer{}
+	reg := mocks.NewShutdownReg()
+	reg.On("RegisterOnShutdown", mock.Anything)
+	defer reg.Shutdown()
 	// dispatcher
-	d := startDispatcher(delay, historySize)
+	d, h := startDispatcher(delay, historySize, l)
 	defer d.Stop()
 
 	// consumer
-	msgQueue := createMsgQueue(t, uriWhitelist, typeWhitelist, originWhitelist, resource, "test-api", d)
+	msgQueue := createMsgQueue(t, uriWhitelist, typeWhitelist, originWhitelist, resource, "test-api", d, l)
 
 	// server
 	router := mux.NewRouter()
@@ -95,9 +106,12 @@ func TestPushNotifications(t *testing.T) {
 	defer server.Close()
 
 	// handler
+	hc := resources.NewHealthCheck(queue, apiGatewayGTGURL, nil)
+
 	keyValidator := resources.NewKeyValidator(server.URL+apiGatewayURL, http.DefaultClient, l)
-	s := resources.NewSubHandler(d, keyValidator, heartbeat, resource, l)
-	s.RegisterHandlers(router)
+	s := resources.NewSubHandler(d, keyValidator, reg, heartbeat, l)
+
+	initRouter(router, s, resource, d, h, hc, l)
 
 	// key validation
 	router.HandleFunc(apiGatewayURL, func(resp http.ResponseWriter, req *http.Request) {
@@ -107,10 +121,13 @@ func TestPushNotifications(t *testing.T) {
 	// context that controls the live of all subscribers
 	ctx, cancel := context.WithCancel(context.Background())
 
+	testHealthcheckEndpoints(ctx, t, server.URL, queue, hc)
+
 	testClientWithNONotifications(ctx, t, server.URL, heartbeat, "Audio")
 	testClientWithNotifications(ctx, t, server.URL, "Article", expectedArticleNotificationBody)
 	testClientWithNotifications(ctx, t, server.URL, "All", expectedArticleNotificationBody)
 	testClientWithNotifications(ctx, t, server.URL, "Annotations", expectedPACNotificationBody)
+	reg.AssertNumberOfCalls(t, "RegisterOnShutdown", 4)
 
 	// message producer
 	go func() {
@@ -126,9 +143,7 @@ func TestPushNotifications(t *testing.T) {
 				return
 			case <-time.After(sendDelay):
 				for _, msg := range msgs {
-					err := msgQueue.HandleMessage(msg)
-					if err != nil {
-						assert.NoError(t, err)
+					if !assert.NoError(t, msgQueue.HandleMessage(msg)) {
 						return
 					}
 				}
@@ -140,6 +155,102 @@ func TestPushNotifications(t *testing.T) {
 	// shutdown test
 	cancel()
 
+}
+
+func testHealthcheckEndpoints(ctx context.Context, t *testing.T, serverURL string, queue *mocks.KafkaConsumer, hc *resources.HealthCheck) {
+
+	tests := map[string]struct {
+		url            string
+		expectedStatus int
+		expectedBody   string
+		clientFunc     resources.RequestStatusFn
+		kafkaFunc      func() error
+	}{"gtg endpoint success": {
+		url: "/__gtg",
+		clientFunc: func(ctx context.Context, url string) (int, error) {
+			return http.StatusOK, nil
+		},
+		kafkaFunc: func() error {
+			return nil
+		},
+		expectedStatus: http.StatusOK,
+		expectedBody:   "OK",
+	},
+		"gtg endpoint kafka failure": {
+			url: "/__gtg",
+			clientFunc: func(ctx context.Context, url string) (int, error) {
+				return http.StatusOK, nil
+			},
+			kafkaFunc: func() error {
+				return errors.New("sample error")
+			},
+			expectedStatus: http.StatusServiceUnavailable,
+			expectedBody:   "error connecting to kafka queue",
+		},
+		"gtg endpoint ApiGateway failure": {
+			url: "/__gtg",
+			clientFunc: func(ctx context.Context, url string) (int, error) {
+				return http.StatusServiceUnavailable, errors.New("gateway failed")
+			},
+			kafkaFunc: func() error {
+				return nil
+			},
+			expectedStatus: http.StatusServiceUnavailable,
+			expectedBody:   "gateway failed",
+		},
+		"responds on build-info": {
+			url: "/__build-info",
+			clientFunc: func(ctx context.Context, url string) (int, error) {
+				return http.StatusOK, nil
+			},
+			kafkaFunc: func() error {
+				return nil
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"version":`,
+		},
+		"responds on ping": {
+			url: "/__ping",
+			clientFunc: func(ctx context.Context, url string) (int, error) {
+				return http.StatusOK, nil
+			},
+			kafkaFunc: func() error {
+				return nil
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   "pong",
+		},
+	}
+	backupClientFunc := hc.StatusFunc
+	backupKafkaFunc := queue.ConnectivityCheckF
+	defer func() {
+		hc.StatusFunc = backupClientFunc
+		queue.ConnectivityCheckF = backupKafkaFunc
+	}()
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+
+			hc.StatusFunc = test.clientFunc
+			queue.ConnectivityCheckF = test.kafkaFunc
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, serverURL+test.url, nil)
+			if err != nil {
+				t.Fatalf("could not create request: %v", err)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("failed making request: %v", err)
+			}
+			defer resp.Body.Close()
+
+			buf := new(bytes.Buffer)
+			_, _ = buf.ReadFrom(resp.Body)
+			body := buf.String()
+
+			assert.Equal(t, test.expectedStatus, resp.StatusCode)
+			assert.Contains(t, body, test.expectedBody)
+		})
+	}
 }
 
 // Tests a subscriber that expects only notifications
@@ -225,14 +336,14 @@ func startSubscriber(ctx context.Context, serverURL string, subType string) (<-c
 	return ch, nil
 }
 
-func startDispatcher(delay time.Duration, historySize int) dispatch.Dispatcher {
+func startDispatcher(delay time.Duration, historySize int, log *logger.UPPLogger) (*dispatch.Dispatcher, dispatch.History) {
 	h := dispatch.NewHistory(historySize)
-	d := dispatch.NewDispatcher(delay, h)
+	d := dispatch.NewDispatcher(delay, h, log)
 	go d.Start()
-	return d
+	return d, h
 }
 
-func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, originWhitelist []string, resource string, apiURL string, d dispatch.Dispatcher) consumer.MessageQueueHandler {
+func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, originWhitelist []string, resource string, apiURL string, d *dispatch.Dispatcher, log *logger.UPPLogger) consumer.MessageQueueHandler {
 	set := consumer.NewSet()
 	for _, value := range typeWhitelist {
 		set.Add(value)
@@ -245,8 +356,8 @@ func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, o
 		APIBaseURL: apiURL,
 		Property:   &conceptTimeReader{},
 	}
-	contentHandler := consumer.NewContentQueueHandler(reg, set, mapper, d)
-	metadataHandler := consumer.NewMetadataQueueHandler(originWhitelist, mapper, d)
+	contentHandler := consumer.NewContentQueueHandler(reg, set, mapper, d, log)
+	metadataHandler := consumer.NewMetadataQueueHandler(originWhitelist, mapper, d, log)
 
 	return consumer.NewMessageQueueHandler(contentHandler, metadataHandler)
 }

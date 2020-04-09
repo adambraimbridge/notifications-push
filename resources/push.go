@@ -12,7 +12,6 @@ import (
 
 	logger "github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -35,31 +34,37 @@ type keyValidator interface {
 	Validate(ctx context.Context, key string) error
 }
 
+//
+type notifier interface {
+	Subscribe(address string, subType string, monitoring bool) dispatch.Subscriber
+	Unsubscribe(subscriber dispatch.Subscriber)
+}
+
+type onShutdown interface {
+	RegisterOnShutdown(f func())
+}
+
 // SubHandler manages subscription requests
 type SubHandler struct {
-	dispatcher      dispatch.Registrar
+	notif           notifier
 	validator       keyValidator
+	shutdown        onShutdown
 	heartbeatPeriod time.Duration
-	resource        string
 	log             *logger.UPPLogger
 }
 
-func NewSubHandler(dispatcher dispatch.Registrar,
+func NewSubHandler(n notifier,
 	validator keyValidator,
+	shutdown onShutdown,
 	heartbeatPeriod time.Duration,
-	resource string,
 	log *logger.UPPLogger) *SubHandler {
 	return &SubHandler{
-		dispatcher:      dispatcher,
+		notif:           n,
 		validator:       validator,
+		shutdown:        shutdown,
 		heartbeatPeriod: heartbeatPeriod,
-		resource:        resource,
 		log:             log,
 	}
-}
-
-func (h *SubHandler) RegisterHandlers(r *mux.Router) {
-	r.HandleFunc("/"+h.resource+"/notifications-push", h.HandleSubscription).Methods("GET")
 }
 
 func (h *SubHandler) HandleSubscription(w http.ResponseWriter, r *http.Request) {
@@ -91,17 +96,19 @@ func (h *SubHandler) HandleSubscription(w http.ResponseWriter, r *http.Request) 
 	monitorParam := r.URL.Query().Get("monitor")
 	isMonitor, _ := strconv.ParseBool(monitorParam)
 
-	s := h.dispatcher.Subscribe(getClientAddr(r), subscriptionParam, isMonitor)
-	defer h.dispatcher.Unsubscribe(s)
+	s := h.notif.Subscribe(getClientAddr(r), subscriptionParam, isMonitor)
+	defer h.notif.Unsubscribe(s)
 
-	h.listenForNotifications(r.Context(), s, w)
+	ctx, cancel := context.WithCancel(r.Context())
+	h.shutdown.RegisterOnShutdown(cancel)
+	h.listenForNotifications(ctx, s, w)
 }
 
 // listenForNotifications starts listening on the subscribes channel for notifications
 func (h *SubHandler) listenForNotifications(ctx context.Context, s dispatch.Subscriber, w http.ResponseWriter) {
 	bw := bufio.NewWriter(w)
 	timer := time.NewTimer(h.heartbeatPeriod)
-	logEntry := h.log.WithField("subscriberId", s.Id()).WithField("subscriber", s.Address())
+	logEntry := h.log.WithField("subscriberId", s.ID()).WithField("subscriber", s.Address())
 
 	write := func(notification string) error {
 		_, err := bw.WriteString("data: " + notification + "\n\n")
@@ -128,7 +135,7 @@ func (h *SubHandler) listenForNotifications(ctx context.Context, s dispatch.Subs
 	logEntry.Info("Heartbeat sent to subscriber successfully")
 	for {
 		select {
-		case notification := <-s.NotificationChannel():
+		case notification := <-s.Notifications():
 			err := write(notification)
 			if err != nil {
 				logEntry.WithError(err).Error("Error while sending notification to subscriber")
@@ -170,11 +177,11 @@ func resolveSubType(r *http.Request) (string, error) {
 		return defaultSubscriptionType, nil
 	}
 	for _, t := range supportedSubscriptionTypes {
-		if strings.ToLower(subType) == strings.ToLower(t) {
+		if strings.EqualFold(subType, t) {
 			return subType, nil
 		}
 	}
-	return "", fmt.Errorf("The specified type (%s) is unsupported", subType)
+	return "", fmt.Errorf("specified type (%s) is unsupported", subType)
 }
 
 //ApiKey is provided either as a request param or as a header.

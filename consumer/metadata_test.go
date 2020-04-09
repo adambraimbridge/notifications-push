@@ -3,20 +3,22 @@ package consumer
 import (
 	"testing"
 
-	logger "github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
-	"github.com/Financial-Times/notifications-push/v4/test/mocks"
+	"github.com/Financial-Times/notifications-push/v4/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 func TestMetadata(t *testing.T) {
-	logger.InitDefaultLogger("test-notifications-push")
+	t.Parallel()
+
+	l := logger.NewUPPLogger("test", "panic")
 
 	tests := map[string]struct {
 		mapper      NotificationMapper
-		sendFunc    func(notification []dispatch.Notification)
+		sendFunc    func(n dispatch.Notification)
 		whitelist   []string
 		msg         kafka.FTMessage
 		expectError bool
@@ -31,7 +33,7 @@ func TestMetadata(t *testing.T) {
 			expectError: true,
 		},
 		"Test Skipping synthetic messages": {
-			sendFunc: func(notification []dispatch.Notification) {
+			sendFunc: func(n dispatch.Notification) {
 				t.Fatal("Send should not be called.")
 			},
 			msg: kafka.FTMessage{
@@ -42,7 +44,7 @@ func TestMetadata(t *testing.T) {
 			},
 		},
 		"Test Skipping Messages from Unsupported Origins": {
-			sendFunc: func(notification []dispatch.Notification) {
+			sendFunc: func(n dispatch.Notification) {
 				t.Fatal("Send should not be called.")
 			},
 			msg: kafka.FTMessage{
@@ -62,9 +64,8 @@ func TestMetadata(t *testing.T) {
 					Time: "2016-11-02T10:54:22.234Z",
 				},
 			},
-			sendFunc: func(notification []dispatch.Notification) {
-				assert.Equal(t, 1, len(notification))
-				expectedNotification := dispatch.Notification{
+			sendFunc: func(n dispatch.Notification) {
+				expected := dispatch.Notification{
 					Type:             "http://www.ft.com/thing/ThingChangeType/ANNOTATIONS_UPDATE",
 					ID:               "http://www.ft.com/thing/fc1d7a28-9506-323f-9558-11beb985e8f7",
 					APIURL:           "test.api.ft.com/content/fc1d7a28-9506-323f-9558-11beb985e8f7",
@@ -72,7 +73,7 @@ func TestMetadata(t *testing.T) {
 					SubscriptionType: "Annotations",
 					LastModified:     "2016-11-02T10:54:22.234Z",
 				}
-				assert.Equal(t, expectedNotification, notification[0])
+				assert.Equal(t, expected, n)
 			},
 			msg: kafka.FTMessage{
 				Headers: map[string]string{
@@ -86,14 +87,16 @@ func TestMetadata(t *testing.T) {
 	}
 
 	for name, test := range tests {
+		test := test
 		t.Run(name, func(t *testing.T) {
-			dispatcher := &mocks.MockDispatcher{}
-			dispatcher.On("Send", mock.AnythingOfType("[]dispatch.Notification")).Return().
+			t.Parallel()
+			dispatcher := &mocks.Dispatcher{}
+			dispatcher.On("Send", mock.AnythingOfType("dispatch.Notification")).Return().
 				Run(func(args mock.Arguments) {
-					arg := args.Get(0).([]dispatch.Notification)
+					arg := args.Get(0).(dispatch.Notification)
 					test.sendFunc(arg)
 				})
-			handler := NewMetadataQueueHandler(test.whitelist, test.mapper, dispatcher)
+			handler := NewMetadataQueueHandler(test.whitelist, test.mapper, dispatcher, l)
 			err := handler.HandleMessage(test.msg)
 			if test.expectError {
 				if err == nil {

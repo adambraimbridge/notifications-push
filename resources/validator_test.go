@@ -7,13 +7,15 @@ import (
 	"testing"
 
 	logger "github.com/Financial-Times/go-logger/v2"
+	"github.com/Financial-Times/notifications-push/v4/mocks"
 	"github.com/Financial-Times/notifications-push/v4/resources"
-	"github.com/Financial-Times/notifications-push/v4/test/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIsValidApiKeySuccessful(t *testing.T) {
-	client := mocks.MockHTTPClientWithResponseCode(http.StatusOK)
+	t.Parallel()
+
+	client := mocks.ClientWithResponseCode(http.StatusOK)
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
@@ -22,7 +24,9 @@ func TestIsValidApiKeySuccessful(t *testing.T) {
 }
 
 func TestIsValidApiKeyError(t *testing.T) {
-	client := mocks.ErroringMockHTTPClient()
+	t.Parallel()
+
+	client := mocks.ClientWithError(errors.New("client error"))
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
@@ -36,7 +40,9 @@ func TestIsValidApiKeyError(t *testing.T) {
 }
 
 func TestIsValidApiKeyEmptyKey(t *testing.T) {
-	client := mocks.ErroringMockHTTPClient()
+	t.Parallel()
+
+	client := mocks.ClientWithError(errors.New("client error"))
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
@@ -50,7 +56,9 @@ func TestIsValidApiKeyEmptyKey(t *testing.T) {
 }
 
 func TestIsValidApiInvalidGatewayURL(t *testing.T) {
-	client := mocks.ErroringMockHTTPClient()
+	t.Parallel()
+
+	client := mocks.ClientWithError(errors.New("client error"))
 
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("://api.gateway.url", client, l)
@@ -64,7 +72,9 @@ func TestIsValidApiInvalidGatewayURL(t *testing.T) {
 }
 
 func TestIsValidApiKeyResponseUnauthorized(t *testing.T) {
-	client := mocks.MockHTTPClientWithResponseCode(http.StatusUnauthorized)
+	t.Parallel()
+
+	client := mocks.ClientWithResponseCode(http.StatusUnauthorized)
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
 
@@ -77,7 +87,9 @@ func TestIsValidApiKeyResponseUnauthorized(t *testing.T) {
 }
 
 func TestIsValidApiKeyResponseTooManyRequests(t *testing.T) {
-	client := mocks.MockHTTPClientWithResponseCode(http.StatusTooManyRequests)
+	t.Parallel()
+
+	client := mocks.ClientWithResponseCode(http.StatusTooManyRequests)
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
 
@@ -90,7 +102,9 @@ func TestIsValidApiKeyResponseTooManyRequests(t *testing.T) {
 }
 
 func TestIsValidApiKeyResponseForbidden(t *testing.T) {
-	client := mocks.MockHTTPClientWithResponseCode(http.StatusForbidden)
+	t.Parallel()
+
+	client := mocks.ClientWithResponseCode(http.StatusForbidden)
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
 
@@ -103,8 +117,9 @@ func TestIsValidApiKeyResponseForbidden(t *testing.T) {
 }
 
 func TestIsValidApiKeyResponseInternalServerError(t *testing.T) {
+	t.Parallel()
 
-	client := mocks.MockHTTPClientWithResponseCode(http.StatusInternalServerError)
+	client := mocks.ClientWithResponseCode(http.StatusInternalServerError)
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
 
@@ -118,8 +133,9 @@ func TestIsValidApiKeyResponseInternalServerError(t *testing.T) {
 }
 
 func TestIsValidApiKeyResponseOtherServerError(t *testing.T) {
+	t.Parallel()
 
-	client := mocks.MockHTTPClientWithResponseCode(http.StatusGatewayTimeout)
+	client := mocks.ClientWithResponseCode(http.StatusGatewayTimeout)
 	l := logger.NewUPPLogger("TEST", "PANIC")
 	v := resources.NewKeyValidator("http://api.gateway.url", client, l)
 

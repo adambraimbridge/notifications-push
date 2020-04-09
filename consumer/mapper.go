@@ -25,6 +25,7 @@ var UUIDRegexp = regexp.MustCompile("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4
 func (n NotificationMapper) MapNotification(event PublicationEvent, transactionID string) (dispatch.Notification, error) {
 	UUID := UUIDRegexp.FindString(event.ContentURI)
 	if UUID == "" {
+		// nolint:golint
 		return dispatch.Notification{}, errors.New("ContentURI does not contain a UUID")
 	}
 

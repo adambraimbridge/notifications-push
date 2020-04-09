@@ -3,11 +3,12 @@ package dispatch
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"testing"
 	"time"
 
-	"github.com/Financial-Times/go-logger"
-	logTest "github.com/Financial-Times/go-logger/test"
+	"github.com/Financial-Times/go-logger/v2"
+	hooks "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,13 +49,12 @@ var annNotif = Notification{
 
 var zeroTime = time.Time{}
 
-func init() {
-	logger.InitLogger("notifications-push", "PANIC")
-}
-
 func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
+	t.Parallel()
+
+	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
-	d := NewDispatcher(delay, h)
+	d := NewDispatcher(delay, h, l)
 
 	m := d.Subscribe("192.168.1.2", contentTypeFilter, true)
 	s := d.Subscribe("192.168.1.3", contentTypeFilter, false)
@@ -63,27 +63,34 @@ func TestShouldDispatchNotificationsToMultipleSubscribers(t *testing.T) {
 	defer d.Stop()
 
 	notBefore := time.Now()
-	d.Send(n1, n2)
+	d.Send(n1)
+	// sleep for ensuring that notifications come in the order they are send.
+	<-time.After(time.Millisecond * 20)
+	d.Send(n2)
 
-	actualN1StdMsg := <-s.NotificationChannel()
+	actualN1StdMsg := <-s.Notifications()
 	verifyNotificationResponse(t, n1, zeroTime, zeroTime, actualN1StdMsg)
 
-	actualN2StdMsg := <-s.NotificationChannel()
+	actualN2StdMsg := <-s.Notifications()
 	verifyNotificationResponse(t, n2, zeroTime, zeroTime, actualN2StdMsg)
 
-	actualN1MonitorMsg := <-m.NotificationChannel()
+	actualN1MonitorMsg := <-m.Notifications()
 	verifyNotificationResponse(t, n1, notBefore, time.Now(), actualN1MonitorMsg)
 
-	actualN2MonitorMsg := <-m.NotificationChannel()
+	actualN2MonitorMsg := <-m.Notifications()
 	verifyNotificationResponse(t, n2, notBefore, time.Now(), actualN2MonitorMsg)
 }
 
 func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
-	hook := logTest.NewTestHook("notifications-push")
+	t.Parallel()
+
+	l := logger.NewUPPLogger("test", "info")
+	l.Out = ioutil.Discard
+	hook := hooks.NewLocal(l.Logger)
 	defer hook.Reset()
 
 	h := NewHistory(historySize)
-	d := NewDispatcher(delay, h)
+	d := NewDispatcher(delay, h, l)
 
 	m := d.Subscribe("192.168.1.2", contentTypeFilter, true)
 	s := d.Subscribe("192.168.1.3", typeArticle, false)
@@ -93,18 +100,23 @@ func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 	defer d.Stop()
 
 	notBefore := time.Now()
-	d.Send(n1, n2, annNotif)
+	d.Send(n1)
+	// sleep for ensuring that notifications come in the order they are send.
+	<-time.After(time.Millisecond * 20)
+	d.Send(n2)
+	<-time.After(time.Millisecond * 20)
+	d.Send(annNotif)
 
-	actualN2StdMsg := <-s.NotificationChannel()
+	actualN2StdMsg := <-s.Notifications()
 	verifyNotificationResponse(t, n2, zeroTime, zeroTime, actualN2StdMsg)
 
-	msg := <-annSub.NotificationChannel()
+	msg := <-annSub.Notifications()
 	verifyNotificationResponse(t, annNotif, notBefore, time.Now(), msg)
 
-	actualN1MonitorMsg := <-m.NotificationChannel()
+	actualN1MonitorMsg := <-m.Notifications()
 	verifyNotificationResponse(t, n1, notBefore, time.Now(), actualN1MonitorMsg)
 
-	actualN2MonitorMsg := <-m.NotificationChannel()
+	actualN2MonitorMsg := <-m.Notifications()
 	verifyNotificationResponse(t, n2, notBefore, time.Now(), actualN2MonitorMsg)
 
 	for _, e := range hook.AllEntries() {
@@ -136,11 +148,14 @@ func TestShouldDispatchNotificationsToSubscribersByType(t *testing.T) {
 }
 
 func TestAddAndRemoveOfSubscribers(t *testing.T) {
-	h := NewHistory(historySize)
-	d := NewDispatcher(delay, h)
+	t.Parallel()
 
-	m := d.Subscribe("192.168.1.2", contentTypeFilter, true)
-	s := d.Subscribe("192.168.1.3", contentTypeFilter, false)
+	l := logger.NewUPPLogger("test", "panic")
+	h := NewHistory(historySize)
+	d := NewDispatcher(delay, h, l)
+
+	m := d.Subscribe("192.168.1.2", contentTypeFilter, true).(NotificationConsumer)
+	s := d.Subscribe("192.168.1.3", contentTypeFilter, false).(NotificationConsumer)
 
 	go d.Start()
 	defer d.Stop()
@@ -164,8 +179,11 @@ func TestAddAndRemoveOfSubscribers(t *testing.T) {
 }
 
 func TestDispatchDelay(t *testing.T) {
+	t.Parallel()
+
+	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
-	d := NewDispatcher(delay, h)
+	d := NewDispatcher(delay, h, l)
 
 	s := d.Subscribe("192.168.1.3", contentTypeFilter, false)
 
@@ -175,7 +193,7 @@ func TestDispatchDelay(t *testing.T) {
 	start := time.Now()
 	go d.Send(n1)
 
-	actualN1StdMsg := <-s.NotificationChannel()
+	actualN1StdMsg := <-s.Notifications()
 
 	stop := time.Now()
 
@@ -186,15 +204,20 @@ func TestDispatchDelay(t *testing.T) {
 }
 
 func TestDispatchedNotificationsInHistory(t *testing.T) {
+	t.Parallel()
+
+	l := logger.NewUPPLogger("test", "panic")
 	h := NewHistory(historySize)
-	d := NewDispatcher(delay, h)
+	d := NewDispatcher(delay, h, l)
 
 	go d.Start()
 	defer d.Stop()
 
 	notBefore := time.Now()
 
-	d.Send(n1, n2, annNotif)
+	d.Send(n1)
+	d.Send(n2)
+	d.Send(annNotif)
 	time.Sleep(time.Duration(delay.Seconds()+1) * time.Second)
 
 	notAfter := time.Now()
@@ -213,11 +236,15 @@ func TestDispatchedNotificationsInHistory(t *testing.T) {
 }
 
 func TestInternalFailToSendNotifications(t *testing.T) {
-	hook := logTest.NewTestHook("notifications-push")
+	t.Parallel()
+
+	l := logger.NewUPPLogger("test", "info")
+	l.Out = ioutil.Discard
+	hook := hooks.NewLocal(l.Logger)
 	defer hook.Reset()
 
 	h := NewHistory(historySize)
-	d := NewDispatcher(0, h).(*dispatcher)
+	d := NewDispatcher(0, h, l)
 
 	s1 := &MockSubscriber{}
 	s2 := &MockSubscriber{}
@@ -233,7 +260,6 @@ func TestInternalFailToSendNotifications(t *testing.T) {
 	d.Send(n1)
 
 	time.Sleep(time.Second)
-	logger.Info("This log message is here to avoid a race condition")
 
 	foundLog := false
 	logOccurrence := 0
@@ -254,7 +280,7 @@ func TestInternalFailToSendNotifications(t *testing.T) {
 
 func verifyNotificationResponse(t *testing.T, expected Notification, notBefore time.Time, notAfter time.Time, actualMsg string) {
 	actualNotifications := []Notification{}
-	json.Unmarshal([]byte(actualMsg), &actualNotifications)
+	_ = json.Unmarshal([]byte(actualMsg), &actualNotifications)
 	require.True(t, len(actualNotifications) > 0)
 	actual := actualNotifications[0]
 
@@ -286,7 +312,7 @@ type MockSubscriber struct {
 }
 
 // AcceptedSubType provides a mock function with given fields:
-func (_m *MockSubscriber) AcceptedSubType() string {
+func (_m *MockSubscriber) SubType() string {
 	return "ContentPackage"
 }
 
@@ -295,27 +321,18 @@ func (_m *MockSubscriber) Address() string {
 	return "192.168.1.1"
 }
 
-// matchesSubType provides a mock function with given fields: n
-func (_m *MockSubscriber) matchesSubType(n Notification) bool {
-	return true
-}
-
 // send provides a mock function with given fields: n
-func (_m *MockSubscriber) send(n Notification) error {
+func (_m *MockSubscriber) Send(n Notification) error {
 	return errors.New("error")
 }
 
-// writeOnMsgChannel provides a mock function with given fields: _a0
-func (_m *MockSubscriber) writeOnMsgChannel(_a0 string) {
-}
-
 // Id provides a mock function with given fields:
-func (_m *MockSubscriber) Id() string {
+func (_m *MockSubscriber) ID() string {
 	return "id"
 }
 
 // NotificationChannel provides a mock function with given fields:
-func (_m *MockSubscriber) NotificationChannel() chan string {
+func (_m *MockSubscriber) Notifications() <-chan string {
 	return make(chan string, 16)
 }
 

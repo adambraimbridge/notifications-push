@@ -3,13 +3,12 @@ package resources
 import (
 	"net/http"
 
-	log "github.com/Financial-Times/go-logger"
-
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
 // History returns history data
-func History(history dispatch.History) func(w http.ResponseWriter, r *http.Request) {
+func History(history dispatch.History, log *logger.UPPLogger) func(w http.ResponseWriter, r *http.Request) {
 	errMsg := "Serving /__history request"
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-type", "application/json; charset=UTF-8")

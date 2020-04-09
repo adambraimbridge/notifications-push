@@ -5,14 +5,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
-	"github.com/Financial-Times/notifications-push/v4/test/mocks"
+	"github.com/Financial-Times/notifications-push/v4/mocks"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStats(t *testing.T) {
-	d := new(mocks.MockDispatcher)
+	t.Parallel()
+
+	l := logger.NewUPPLogger("test", "panic")
+	d := &mocks.Dispatcher{}
 	d.On("Subscribers").Return([]dispatch.Subscriber{})
 
 	w := httptest.NewRecorder()
@@ -21,7 +24,7 @@ func TestStats(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	Stats(d)(w, req)
+	Stats(d, l)(w, req)
 
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"), "Should be json")
 	assert.Equal(t, `{"nrOfSubscribers":0,"subscribers":[]}`, w.Body.String(), "Should be empty array")

@@ -72,7 +72,7 @@ func (v *KeyValidator) Validate(ctx context.Context, key string) error {
 		return NewKeyErr("Request to validate api key failed", http.StatusInternalServerError, keySuffix)
 	}
 	defer func() {
-		io.Copy(ioutil.Discard, resp.Body)
+		_, _ = io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 	}()
 
@@ -85,10 +85,9 @@ func (v *KeyValidator) Validate(ctx context.Context, key string) error {
 
 func (v *KeyValidator) logFailedRequest(resp *http.Response, keySuffix string) *KeyErr {
 
-	type ApiMessage struct {
+	msg := struct {
 		Error string `json:"error"`
-	}
-	msg := ApiMessage{}
+	}{}
 	responseBody := ""
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
