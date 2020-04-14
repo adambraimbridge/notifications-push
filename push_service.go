@@ -164,7 +164,7 @@ func requestStatusCode(ctx context.Context, url string) (int, error) {
 
 type conceptTimeReader struct{}
 
-func (c *conceptTimeReader) LastModified(event queueConsumer.ConceptAnnotationsEvent) string {
+func (c *conceptTimeReader) LastModified(event queueConsumer.AnnotationsMessage) string {
 	// Currently PostConceptAnnotations event is missing LastModified property for annotations.
 	// So we use current time as a substitute.
 	return time.Now().Format(time.RFC3339)

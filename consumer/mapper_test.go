@@ -13,7 +13,7 @@ func TestMapToUpdateNotification(t *testing.T) {
 	standout := map[string]interface{}{"scoop": true}
 	payload := map[string]interface{}{"title": "This is a title", "standout": standout, "type": "Article"}
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8081/list/blah/" + uuid.NewV4().String(),
 		LastModified: "2016-11-02T10:54:22.234Z",
 		Payload:      payload,
@@ -38,7 +38,7 @@ func TestMapToUpdateNotification_ForContentWithVersion3UUID(t *testing.T) {
 
 	payload := struct{ Foo string }{"bar"}
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8081/list/blah/" + uuid.NewV3(uuid.UUID{}, "id").String(),
 		LastModified: "2016-11-02T10:54:22.234Z",
 		Payload:      payload,
@@ -59,7 +59,7 @@ func TestMapToUpdateNotification_ForContentWithVersion3UUID(t *testing.T) {
 func TestMapToDeleteNotification(t *testing.T) {
 	t.Parallel()
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8080/list/blah/" + uuid.NewV4().String(),
 		LastModified: "2016-11-02T10:54:22.234Z",
 		Payload:      "",
@@ -79,7 +79,7 @@ func TestMapToDeleteNotification(t *testing.T) {
 func TestMapToDeleteNotification_ContentTypeHeader(t *testing.T) {
 	t.Parallel()
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:        "http://list-transformer-pr-uk-up.svc.ft.com:8080/list/blah/" + uuid.NewV4().String(),
 		LastModified:      "2016-11-02T10:54:22.234Z",
 		ContentTypeHeader: "application/vnd.ft-upp-article+json",
@@ -101,7 +101,7 @@ func TestMapToDeleteNotification_ContentTypeHeader(t *testing.T) {
 func TestNotificationMappingFailure(t *testing.T) {
 	t.Parallel()
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8080/list/blah",
 		LastModified: "2016-11-02T10:54:22.234Z",
 		Payload:      "",
@@ -122,7 +122,7 @@ func TestNotificationMappingFieldsNotExtractedFromPayload(t *testing.T) {
 
 	payload := map[string]interface{}{"foo": "bar"}
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8081/list/blah/" + uuid.NewV4().String(),
 		LastModified: "2016-11-02T10:54:22.234Z",
 		Payload:      payload,

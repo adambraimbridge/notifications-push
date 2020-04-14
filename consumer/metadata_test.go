@@ -116,6 +116,6 @@ type propertyMock struct {
 	Time string
 }
 
-func (m *propertyMock) LastModified(event ConceptAnnotationsEvent) string {
+func (m *propertyMock) LastModified(event AnnotationsMessage) string {
 	return m.Time
 }

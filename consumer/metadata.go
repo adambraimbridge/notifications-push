@@ -26,7 +26,7 @@ func (h *MetadataQueueHandler) HandleMessage(queueMsg kafka.FTMessage) error {
 	tid := msg.TransactionID()
 	entry := h.log.WithTransactionID(tid)
 
-	event, err := msg.ToAnnotationEvent()
+	event, err := msg.AsMetadata()
 	if err != nil {
 		entry.WithField("message_body", msg.Body).WithError(err).Warn("Skipping annotation event.")
 		return err

@@ -8,7 +8,7 @@ import (
 )
 
 type PropertyReader interface {
-	LastModified(event ConceptAnnotationsEvent) string
+	LastModified(event AnnotationsMessage) string
 }
 
 // NotificationMapper maps CmsPublicationEvents to Notifications
@@ -22,7 +22,7 @@ type NotificationMapper struct {
 var UUIDRegexp = regexp.MustCompile("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}")
 
 // MapNotification maps the given event to a new notification.
-func (n NotificationMapper) MapNotification(event PublicationEvent, transactionID string) (dispatch.Notification, error) {
+func (n NotificationMapper) MapNotification(event ContentMessage, transactionID string) (dispatch.Notification, error) {
 	UUID := UUIDRegexp.FindString(event.ContentURI)
 	if UUID == "" {
 		// nolint:golint
@@ -59,7 +59,7 @@ func (n NotificationMapper) MapNotification(event PublicationEvent, transactionI
 	}, nil
 }
 
-func (n NotificationMapper) MapMetadataNotification(event ConceptAnnotationsEvent, transactionID string) dispatch.Notification {
+func (n NotificationMapper) MapMetadataNotification(event AnnotationsMessage, transactionID string) dispatch.Notification {
 	return dispatch.Notification{
 		Type:             dispatch.AnnotationUpdateType,
 		ID:               "http://www.ft.com/thing/" + event.ContentID,
