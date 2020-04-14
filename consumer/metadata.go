@@ -33,7 +33,7 @@ func (h *MetadataQueueHandler) HandleMessage(queueMsg kafka.FTMessage) error {
 	}
 
 	if msg.HasSynthTransactionID() {
-		entry.WithValidFlag(false).WithField("contentID", event.ContentID).Info("Skipping annotation event: Synthetic transaction ID.")
+		entry.WithValidFlag(false).WithField("contentURI", event.ContentURI).Info("Skipping annotation event: Synthetic transaction ID.")
 		return nil
 	}
 
@@ -42,7 +42,11 @@ func (h *MetadataQueueHandler) HandleMessage(queueMsg kafka.FTMessage) error {
 		return nil
 	}
 
-	notification := h.mapper.MapMetadataNotification(event, msg.TransactionID())
+	notification, err := h.mapper.MapMetadataNotification(event, msg.TransactionID())
+	if err != nil {
+		entry.WithField("message_body", msg.Body).WithError(err).Warn("Could not map event to Annotations message")
+		return err
+	}
 	entry.WithField("resource", notification.APIURL).Info("Valid annotation notification received")
 	h.dispatcher.Send(notification)
 

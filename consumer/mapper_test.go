@@ -3,6 +3,7 @@ package consumer
 import (
 	"testing"
 
+	"github.com/Financial-Times/notifications-push/v4/dispatch"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -140,4 +141,68 @@ func TestNotificationMappingFieldsNotExtractedFromPayload(t *testing.T) {
 	assert.Empty(t, n.Title, "Title should be empty when it cannot be extracted from payload")
 	assert.Equal(t, false, n.Standout.Scoop, "Scoop field should be set to false when it cannot be extracted from payload")
 	assert.Equal(t, "", n.SubscriptionType, "SubscriptionType field should be empty when it cannot be extracted from payload")
+}
+
+func TestNotificationMappingMetadata(t *testing.T) {
+	t.Parallel()
+
+	mapper := NotificationMapper{
+		APIBaseURL: "test.api.ft.com",
+		Resource:   "content",
+	}
+
+	testTID := "tid_test"
+
+	tests := map[string]struct {
+		Event    AnnotationsMessage
+		HasError bool
+		Expected dispatch.Notification
+	}{
+		"Success": {
+			Event: AnnotationsMessage{
+				ContentURI:   "http://annotations-rw-neo4j.svc.ft.com/annotations/d1b430b9-0ce2-4b85-9c7b-5b700e8519fe",
+				LastModified: "2019-11-10T14:34:25.209Z",
+				Payload:      &Annotations{ContentID: "d1b430b9-0ce2-4b85-9c7b-5b700e8519fe"},
+			},
+			Expected: dispatch.Notification{
+				APIURL:           "test.api.ft.com/content/d1b430b9-0ce2-4b85-9c7b-5b700e8519fe",
+				ID:               "http://www.ft.com/thing/d1b430b9-0ce2-4b85-9c7b-5b700e8519fe",
+				Type:             dispatch.AnnotationUpdateType,
+				PublishReference: testTID,
+				LastModified:     "2019-11-10T14:34:25.209Z",
+				SubscriptionType: dispatch.AnnotationsType,
+			},
+		},
+		"Invalid UUID in contentURI": {
+			Event: AnnotationsMessage{
+				ContentURI:   "http://annotations-rw-neo4j.svc.ft.com/annotations/invalid-uuid",
+				LastModified: "2019-11-10T14:34:25.209Z",
+			},
+			HasError: true,
+		},
+		"Missing payload": {
+			Event: AnnotationsMessage{
+				ContentURI:   "http://annotations-rw-neo4j.svc.ft.com/annotations/d1b430b9-0ce2-4b85-9c7b-5b700e8519fe",
+				LastModified: "2019-11-10T14:34:25.209Z",
+				Payload:      nil,
+			},
+			HasError: true,
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			n, err := mapper.MapMetadataNotification(test.Event, testTID)
+			if test.HasError {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, test.Expected, n)
+		})
+	}
 }

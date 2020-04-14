@@ -49,6 +49,12 @@ func (msg NotificationQueueMessage) AsMetadata() (AnnotationsMessage, error) {
 }
 
 type AnnotationsMessage struct {
+	ContentURI   string       `json:"contentUri"`
+	LastModified string       `json:"lastModified"`
+	Payload      *Annotations `json:"payload"`
+}
+
+type Annotations struct {
 	ContentID   string `json:"uuid"`
 	Annotations []struct {
 		Thing struct {
