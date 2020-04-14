@@ -58,7 +58,7 @@ var annotationMsg = kafka.NewFTMessage(map[string]string{
 	"Origin-System-Id":  "http://cmdb.ft.com/systems/pac",
 	"Content-Type":      "application/json",
 	"X-Request-Id":      "test-publish-123",
-}, `{"uuid":"4de8b414-c5aa-11e9-a8e9-296ca66511c9","annotations":[{"thing":{"id":"http://www.ft.com/thing/68678217-1d06-4600-9d43-b0e71a333c2a","predicate":"about"}}]}`)
+}, `{"contentUri": "http://annotations-rw-neo4j.svc.ft.com/content/4de8b414-c5aa-11e9-a8e9-296ca66511c9","lastModified": "2019-10-02T15:13:19.52Z","payload": {"uuid":"4de8b414-c5aa-11e9-a8e9-296ca66511c9","annotations":[{"thing":{ "id":"http://www.ft.com/thing/68678217-1d06-4600-9d43-b0e71a333c2a","predicate":"about"}}]}}`)
 
 func TestPushNotifications(t *testing.T) {
 	t.Parallel()

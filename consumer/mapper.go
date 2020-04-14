@@ -59,15 +59,24 @@ func (n NotificationMapper) MapNotification(event ContentMessage, transactionID 
 	}, nil
 }
 
-func (n NotificationMapper) MapMetadataNotification(event AnnotationsMessage, transactionID string) dispatch.Notification {
+func (n NotificationMapper) MapMetadataNotification(event AnnotationsMessage, transactionID string) (dispatch.Notification, error) {
+
+	UUID := UUIDRegexp.FindString(event.ContentURI)
+	if UUID == "" {
+		return dispatch.Notification{}, errors.New("contentURI does not contain a UUID")
+	}
+	if event.Payload == nil {
+		return dispatch.Notification{}, errors.New("payload missing")
+	}
+
 	return dispatch.Notification{
 		Type:             dispatch.AnnotationUpdateType,
-		ID:               "http://www.ft.com/thing/" + event.ContentID,
-		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + event.ContentID,
+		ID:               "http://www.ft.com/thing/" + UUID,
+		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + UUID,
 		PublishReference: transactionID,
 		SubscriptionType: dispatch.AnnotationsType,
-		LastModified:     n.Property.LastModified(event),
-	}
+		LastModified:     event.LastModified,
+	}, nil
 }
 
 func resolveTypeFromMessageHeader(contentTypeHeader string) string {
