@@ -354,7 +354,6 @@ func createMsgQueue(t *testing.T, uriWhitelist string, typeWhitelist []string, o
 	mapper := consumer.NotificationMapper{
 		Resource:   resource,
 		APIBaseURL: apiURL,
-		Property:   &conceptTimeReader{},
 	}
 	contentHandler := consumer.NewContentQueueHandler(reg, set, mapper, d, log)
 	metadataHandler := consumer.NewMetadataQueueHandler(originWhitelist, mapper, d, log)

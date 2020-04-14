@@ -130,7 +130,6 @@ func createMessageHandler(config msgHandlerCfg, dispatcher *dispatch.Dispatcher,
 	mapper := queueConsumer.NotificationMapper{
 		Resource:   config.Resource,
 		APIBaseURL: config.BaseURL,
-		Property:   &conceptTimeReader{},
 	}
 	whitelistR, err := regexp.Compile(config.ContentURI)
 	if err != nil {
@@ -160,12 +159,4 @@ func requestStatusCode(ctx context.Context, url string) (int, error) {
 	defer res.Body.Close()
 
 	return res.StatusCode, nil
-}
-
-type conceptTimeReader struct{}
-
-func (c *conceptTimeReader) LastModified(event queueConsumer.AnnotationsMessage) string {
-	// Currently PostConceptAnnotations event is missing LastModified property for annotations.
-	// So we use current time as a substitute.
-	return time.Now().Format(time.RFC3339)
 }

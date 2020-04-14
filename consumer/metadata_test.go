@@ -74,9 +74,6 @@ func TestMetadata(t *testing.T) {
 			mapper: NotificationMapper{
 				APIBaseURL: "test.api.ft.com",
 				Resource:   "content",
-				Property: &propertyMock{
-					Time: "2016-11-02T10:54:22.234Z",
-				},
 			},
 			sendFunc: func(n dispatch.Notification) {
 				expected := dispatch.Notification{
@@ -124,12 +121,4 @@ func TestMetadata(t *testing.T) {
 		})
 	}
 
-}
-
-type propertyMock struct {
-	Time string
-}
-
-func (m *propertyMock) LastModified(event AnnotationsMessage) string {
-	return m.Time
 }
