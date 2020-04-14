@@ -7,15 +7,10 @@ import (
 	"github.com/Financial-Times/notifications-push/v4/dispatch"
 )
 
-type PropertyReader interface {
-	LastModified(event AnnotationsMessage) string
-}
-
 // NotificationMapper maps CmsPublicationEvents to Notifications
 type NotificationMapper struct {
 	APIBaseURL string
 	Resource   string
-	Property   PropertyReader
 }
 
 // UUIDRegexp enables to check if a string matches a UUID
