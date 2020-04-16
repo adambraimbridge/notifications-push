@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/Financial-Times/go-logger/v2"
-	"github.com/Financial-Times/notifications-push/v4/resources"
+	"github.com/Financial-Times/notifications-push/v5/resources"
 	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
 )

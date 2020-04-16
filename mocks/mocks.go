@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/Financial-Times/notifications-push/v5/dispatch"
 	"github.com/stretchr/testify/mock"
 )
 

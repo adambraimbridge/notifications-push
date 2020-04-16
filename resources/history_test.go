@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/Financial-Times/go-logger/v2"
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/Financial-Times/notifications-push/v5/dispatch"
 	"github.com/stretchr/testify/assert"
 )
 

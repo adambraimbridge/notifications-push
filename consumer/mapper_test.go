@@ -3,7 +3,7 @@ package consumer
 import (
 	"testing"
 
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/Financial-Times/notifications-push/v5/dispatch"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )

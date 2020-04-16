@@ -2,7 +2,7 @@ package consumer
 
 import (
 	"github.com/Financial-Times/kafka-client-go/kafka"
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/Financial-Times/notifications-push/v5/dispatch"
 )
 
 // MessageQueueHandler is a generic interface for implementation of components to handle messages form the kafka queue.
