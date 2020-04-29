@@ -35,20 +35,26 @@ func (msg NotificationQueueMessage) OriginID() string {
 	return msg.Headers["Origin-System-Id"]
 }
 
-// ToPublicationEvent converts the message to a CmsPublicationEvent
-func (msg NotificationQueueMessage) ToPublicationEvent() (event PublicationEvent, err error) {
+// AsContent converts the message to a CmsPublicationEvent
+func (msg NotificationQueueMessage) AsContent() (event ContentMessage, err error) {
 	err = json.Unmarshal([]byte(msg.Body), &event)
 	return event, err
 }
 
-// ToAnnotationEvent converts message to ConceptAnnotations Event
-func (msg NotificationQueueMessage) ToAnnotationEvent() (ConceptAnnotationsEvent, error) {
-	var event ConceptAnnotationsEvent
+// AsMetadata converts message to ConceptAnnotations Event
+func (msg NotificationQueueMessage) AsMetadata() (AnnotationsMessage, error) {
+	var event AnnotationsMessage
 	err := json.Unmarshal([]byte(msg.Body), &event)
 	return event, err
 }
 
-type ConceptAnnotationsEvent struct {
+type AnnotationsMessage struct {
+	ContentURI   string       `json:"contentUri"`
+	LastModified string       `json:"lastModified"`
+	Payload      *Annotations `json:"payload"`
+}
+
+type Annotations struct {
 	ContentID   string `json:"uuid"`
 	Annotations []struct {
 		Thing struct {
@@ -58,23 +64,22 @@ type ConceptAnnotationsEvent struct {
 	} `json:"annotations"`
 }
 
-// PublicationEvent is the data structure that represents a publication event consumed from Kafka
-type PublicationEvent struct {
+// ContentMessage is the data structure that represents a publication event consumed from Kafka
+type ContentMessage struct {
 	ContentURI        string
 	ContentTypeHeader string
 	LastModified      string
 	Payload           interface{}
-	UUID              string
 }
 
 // Matches is a method that returns True if the ContentURI of a publication event
 // matches a whitelist regexp
-func (e PublicationEvent) Matches(whitelist *regexp.Regexp) bool {
+func (e ContentMessage) Matches(whitelist *regexp.Regexp) bool {
 	return whitelist.MatchString(e.ContentURI)
 }
 
-// HasEmptyPayload is a method that returns true if the PublicationEvent has an empty payload
-func (e PublicationEvent) HasEmptyPayload() bool {
+// HasEmptyPayload is a method that returns true if the ContentMessage has an empty payload
+func (e ContentMessage) HasEmptyPayload() bool {
 	switch v := e.Payload.(type) {
 	case nil:
 		return true

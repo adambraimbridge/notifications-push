@@ -3,6 +3,7 @@ package consumer
 import (
 	"testing"
 
+	"github.com/Financial-Times/notifications-push/v5/dispatch"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,7 +14,7 @@ func TestMapToUpdateNotification(t *testing.T) {
 	standout := map[string]interface{}{"scoop": true}
 	payload := map[string]interface{}{"title": "This is a title", "standout": standout, "type": "Article"}
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8081/list/blah/" + uuid.NewV4().String(),
 		LastModified: "2016-11-02T10:54:22.234Z",
 		Payload:      payload,
@@ -38,7 +39,7 @@ func TestMapToUpdateNotification_ForContentWithVersion3UUID(t *testing.T) {
 
 	payload := struct{ Foo string }{"bar"}
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8081/list/blah/" + uuid.NewV3(uuid.UUID{}, "id").String(),
 		LastModified: "2016-11-02T10:54:22.234Z",
 		Payload:      payload,
@@ -59,7 +60,7 @@ func TestMapToUpdateNotification_ForContentWithVersion3UUID(t *testing.T) {
 func TestMapToDeleteNotification(t *testing.T) {
 	t.Parallel()
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8080/list/blah/" + uuid.NewV4().String(),
 		LastModified: "2016-11-02T10:54:22.234Z",
 		Payload:      "",
@@ -79,7 +80,7 @@ func TestMapToDeleteNotification(t *testing.T) {
 func TestMapToDeleteNotification_ContentTypeHeader(t *testing.T) {
 	t.Parallel()
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:        "http://list-transformer-pr-uk-up.svc.ft.com:8080/list/blah/" + uuid.NewV4().String(),
 		LastModified:      "2016-11-02T10:54:22.234Z",
 		ContentTypeHeader: "application/vnd.ft-upp-article+json",
@@ -101,7 +102,7 @@ func TestMapToDeleteNotification_ContentTypeHeader(t *testing.T) {
 func TestNotificationMappingFailure(t *testing.T) {
 	t.Parallel()
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8080/list/blah",
 		LastModified: "2016-11-02T10:54:22.234Z",
 		Payload:      "",
@@ -122,7 +123,7 @@ func TestNotificationMappingFieldsNotExtractedFromPayload(t *testing.T) {
 
 	payload := map[string]interface{}{"foo": "bar"}
 
-	event := PublicationEvent{
+	event := ContentMessage{
 		ContentURI:   "http://list-transformer-pr-uk-up.svc.ft.com:8081/list/blah/" + uuid.NewV4().String(),
 		LastModified: "2016-11-02T10:54:22.234Z",
 		Payload:      payload,
@@ -140,4 +141,68 @@ func TestNotificationMappingFieldsNotExtractedFromPayload(t *testing.T) {
 	assert.Empty(t, n.Title, "Title should be empty when it cannot be extracted from payload")
 	assert.Equal(t, false, n.Standout.Scoop, "Scoop field should be set to false when it cannot be extracted from payload")
 	assert.Equal(t, "", n.SubscriptionType, "SubscriptionType field should be empty when it cannot be extracted from payload")
+}
+
+func TestNotificationMappingMetadata(t *testing.T) {
+	t.Parallel()
+
+	mapper := NotificationMapper{
+		APIBaseURL: "test.api.ft.com",
+		Resource:   "content",
+	}
+
+	testTID := "tid_test"
+
+	tests := map[string]struct {
+		Event    AnnotationsMessage
+		HasError bool
+		Expected dispatch.Notification
+	}{
+		"Success": {
+			Event: AnnotationsMessage{
+				ContentURI:   "http://annotations-rw-neo4j.svc.ft.com/annotations/d1b430b9-0ce2-4b85-9c7b-5b700e8519fe",
+				LastModified: "2019-11-10T14:34:25.209Z",
+				Payload:      &Annotations{ContentID: "d1b430b9-0ce2-4b85-9c7b-5b700e8519fe"},
+			},
+			Expected: dispatch.Notification{
+				APIURL:           "test.api.ft.com/content/d1b430b9-0ce2-4b85-9c7b-5b700e8519fe",
+				ID:               "http://www.ft.com/thing/d1b430b9-0ce2-4b85-9c7b-5b700e8519fe",
+				Type:             dispatch.AnnotationUpdateType,
+				PublishReference: testTID,
+				LastModified:     "2019-11-10T14:34:25.209Z",
+				SubscriptionType: dispatch.AnnotationsType,
+			},
+		},
+		"Invalid UUID in contentURI": {
+			Event: AnnotationsMessage{
+				ContentURI:   "http://annotations-rw-neo4j.svc.ft.com/annotations/invalid-uuid",
+				LastModified: "2019-11-10T14:34:25.209Z",
+			},
+			HasError: true,
+		},
+		"Missing payload": {
+			Event: AnnotationsMessage{
+				ContentURI:   "http://annotations-rw-neo4j.svc.ft.com/annotations/d1b430b9-0ce2-4b85-9c7b-5b700e8519fe",
+				LastModified: "2019-11-10T14:34:25.209Z",
+				Payload:      nil,
+			},
+			HasError: true,
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			n, err := mapper.MapMetadataNotification(test.Event, testTID)
+			if test.HasError {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, test.Expected, n)
+		})
+	}
 }

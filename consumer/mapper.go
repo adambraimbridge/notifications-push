@@ -4,25 +4,20 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
+	"github.com/Financial-Times/notifications-push/v5/dispatch"
 )
-
-type PropertyReader interface {
-	LastModified(event ConceptAnnotationsEvent) string
-}
 
 // NotificationMapper maps CmsPublicationEvents to Notifications
 type NotificationMapper struct {
 	APIBaseURL string
 	Resource   string
-	Property   PropertyReader
 }
 
 // UUIDRegexp enables to check if a string matches a UUID
 var UUIDRegexp = regexp.MustCompile("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}")
 
 // MapNotification maps the given event to a new notification.
-func (n NotificationMapper) MapNotification(event PublicationEvent, transactionID string) (dispatch.Notification, error) {
+func (n NotificationMapper) MapNotification(event ContentMessage, transactionID string) (dispatch.Notification, error) {
 	UUID := UUIDRegexp.FindString(event.ContentURI)
 	if UUID == "" {
 		// nolint:golint
@@ -59,15 +54,24 @@ func (n NotificationMapper) MapNotification(event PublicationEvent, transactionI
 	}, nil
 }
 
-func (n NotificationMapper) MapMetadataNotification(event ConceptAnnotationsEvent, transactionID string) dispatch.Notification {
+func (n NotificationMapper) MapMetadataNotification(event AnnotationsMessage, transactionID string) (dispatch.Notification, error) {
+
+	UUID := UUIDRegexp.FindString(event.ContentURI)
+	if UUID == "" {
+		return dispatch.Notification{}, errors.New("contentURI does not contain a UUID")
+	}
+	if event.Payload == nil {
+		return dispatch.Notification{}, errors.New("payload missing")
+	}
+
 	return dispatch.Notification{
 		Type:             dispatch.AnnotationUpdateType,
-		ID:               "http://www.ft.com/thing/" + event.ContentID,
-		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + event.ContentID,
+		ID:               "http://www.ft.com/thing/" + UUID,
+		APIURL:           n.APIBaseURL + "/" + n.Resource + "/" + UUID,
 		PublishReference: transactionID,
 		SubscriptionType: dispatch.AnnotationsType,
-		LastModified:     n.Property.LastModified(event),
-	}
+		LastModified:     event.LastModified,
+	}, nil
 }
 
 func resolveTypeFromMessageHeader(contentTypeHeader string) string {

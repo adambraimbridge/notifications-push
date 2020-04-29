@@ -51,7 +51,7 @@ func NewContentQueueHandler(contentURIWhitelist *regexp.Regexp, contentTypeWhite
 func (qHandler *ContentQueueHandler) HandleMessage(queueMsg kafka.FTMessage) error {
 	msg := NotificationQueueMessage{queueMsg}
 	tid := msg.TransactionID()
-	pubEvent, err := msg.ToPublicationEvent()
+	pubEvent, err := msg.AsContent()
 	contentType := msg.Headers["Content-Type"]
 
 	monitoringLogger := qHandler.log.WithMonitoringEvent("NotificationsPush", tid, contentType)

@@ -5,8 +5,8 @@ import (
 
 	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
-	"github.com/Financial-Times/notifications-push/v4/mocks"
+	"github.com/Financial-Times/notifications-push/v5/dispatch"
+	"github.com/Financial-Times/notifications-push/v5/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -56,13 +56,24 @@ func TestMetadata(t *testing.T) {
 			},
 			whitelist: []string{"valid-origins"},
 		},
+		"Test Fail to map message": {
+			sendFunc: func(n dispatch.Notification) {
+				t.Fatal("Send should not be called.")
+			},
+			msg: kafka.FTMessage{
+				Headers: map[string]string{
+					"X-Request-Id":     "tid_test",
+					"Origin-System-Id": "valid-origins",
+				},
+				Body: `{"uuid":"fc1d7a28-9506-323f-9558-11beb985e8f7","annotations":[]}`,
+			},
+			whitelist:   []string{"valid-origins"},
+			expectError: true,
+		},
 		"Test Handle Message": {
 			mapper: NotificationMapper{
 				APIBaseURL: "test.api.ft.com",
 				Resource:   "content",
-				Property: &propertyMock{
-					Time: "2016-11-02T10:54:22.234Z",
-				},
 			},
 			sendFunc: func(n dispatch.Notification) {
 				expected := dispatch.Notification{
@@ -80,7 +91,7 @@ func TestMetadata(t *testing.T) {
 					"X-Request-Id":     "tid_test",
 					"Origin-System-Id": "valid-origins",
 				},
-				Body: `{"uuid":"fc1d7a28-9506-323f-9558-11beb985e8f7","annotations":[]}`,
+				Body: `{"contentUri": "http://annotations-rw-neo4j.svc.ft.com/annotations/fc1d7a28-9506-323f-9558-11beb985e8f7","lastModified": "2016-11-02T10:54:22.234Z","payload": {"uuid":"fc1d7a28-9506-323f-9558-11beb985e8f7","annotations":[{"thing":{ "id":"http://www.ft.com/thing/68678217-1d06-4600-9d43-b0e71a333c2a","predicate":"about"}}]}}`,
 			},
 			whitelist: []string{"valid-origins"},
 		},
@@ -110,12 +121,4 @@ func TestMetadata(t *testing.T) {
 		})
 	}
 
-}
-
-type propertyMock struct {
-	Time string
-}
-
-func (m *propertyMock) LastModified(event ConceptAnnotationsEvent) string {
-	return m.Time
 }

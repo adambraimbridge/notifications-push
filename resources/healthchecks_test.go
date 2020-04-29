@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Financial-Times/notifications-push/v4/mocks"
+	"github.com/Financial-Times/notifications-push/v5/mocks"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 )

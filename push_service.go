@@ -12,9 +12,9 @@ import (
 
 	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/kafka-client-go/kafka"
-	queueConsumer "github.com/Financial-Times/notifications-push/v4/consumer"
-	"github.com/Financial-Times/notifications-push/v4/dispatch"
-	"github.com/Financial-Times/notifications-push/v4/resources"
+	queueConsumer "github.com/Financial-Times/notifications-push/v5/consumer"
+	"github.com/Financial-Times/notifications-push/v5/dispatch"
+	"github.com/Financial-Times/notifications-push/v5/resources"
 	"github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/mux"
 	"github.com/samuel/go-zookeeper/zk"
@@ -130,7 +130,6 @@ func createMessageHandler(config msgHandlerCfg, dispatcher *dispatch.Dispatcher,
 	mapper := queueConsumer.NotificationMapper{
 		Resource:   config.Resource,
 		APIBaseURL: config.BaseURL,
-		Property:   &conceptTimeReader{},
 	}
 	whitelistR, err := regexp.Compile(config.ContentURI)
 	if err != nil {
@@ -160,12 +159,4 @@ func requestStatusCode(ctx context.Context, url string) (int, error) {
 	defer res.Body.Close()
 
 	return res.StatusCode, nil
-}
-
-type conceptTimeReader struct{}
-
-func (c *conceptTimeReader) LastModified(event queueConsumer.ConceptAnnotationsEvent) string {
-	// Currently PostConceptAnnotations event is missing LastModified property for annotations.
-	// So we use current time as a substitute.
-	return time.Now().Format(time.RFC3339)
 }
